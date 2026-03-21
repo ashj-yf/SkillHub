@@ -74,3 +74,26 @@ git subtree pull --prefix=docs/requirements https://github.com/JokerYF/skills-hu
 # 推送到上游
 git subtree push --prefix=docs/requirements https://github.com/JokerYF/skills-hub-project.git main
 ```
+
+## 团队协作
+
+此项目使用 `/team` 命令触发团队协作模式。
+
+### 团队成员
+
+| 角色 | 职责 |
+|------|------|
+| 架构师 | 技术决策、架构设计、Code Review |
+| 后端开发 | API、CLI 开发 (Rust + Axum) |
+| 前端开发 | Web UI 开发 (Vue 3 + Vite) |
+| 测试工程师 | 测试用例设计、质量保障 |
+
+### 使用方式
+
+```
+/team 实现 user-auth 功能    # 完整开发流程
+/team review src/backend/    # 代码审查
+/team test user-auth 模块    # 测试验证
+```
+
+详细配置见 `.claude/team.yaml`
