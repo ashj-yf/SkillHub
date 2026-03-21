@@ -1,236 +1,322 @@
-# Agent Teams 设计文档
+# Agent Teams Skill 设计文档
 
 > 创建时间：2026-03-21
-> 状态：已批准
+> 状态：设计中
 
 ---
 
 ## 一、概述
 
-为 Skills Intelligence Hub 项目创建一个 agent teams 系统，通过配置文件定义团队成员，配合工作流 Skill 驱动不同角色的 subagent 协作完成开发测试任务。
+为 Skills Intelligence Hub 项目创建 agent teams skill，实现多角色 agent 协作开发。
 
 ### 目标
 
-- 定义项目开发所需的团队成员角色
-- 支持顺序和并行两种协作模式
-- 提供手动触发和自动加载两种触发方式
+- 输入 `/team <任务>` 自动分析任务类型
+- 根据任务类型智能选择参与角色
+- 支持顺序和并行两种执行模式
+- 各角色定义独立维护，易于扩展
 
 ---
 
-## 二、文件结构
+## 二、架构设计
+
+### 2.1 文件结构
 
 ```
 .claude/
-├── team.yaml              # 团队成员配置
+├── team.yaml              # 成员定义 + 工作流规则
 └── skills/
-    └── team.md            # /team 工作流 Skill
+    └── team/
+        ├── SKILL.md       # 主控制器：任务分析、派发逻辑
+        ├── architect.md   # 架构师角色定义
+        ├── backend.md     # 后端开发角色定义
+        ├── frontend.md    # 前端开发角色定义
+        └── tester.md      # 测试工程师角色定义
 ```
+
+### 2.2 工作原理
+
+```
+用户输入: /team 实现 user-auth 功能
+         ↓
+    ┌────────────────┐
+    │   SKILL.md     │  1. 读取 team.yaml
+    │   (主控制器)    │  2. 分析任务类型
+    └────────┬───────┘  3. 查询工作流规则
+             │          4. 派发 agent
+             ▼
+    ┌────────────────┐
+    │   team.yaml    │  成员定义 + 任务规则
+    │   (配置中心)    │
+    └────────┬───────┘
+             │
+    ┌────────┴────────┐
+    ▼                 ▼
+┌─────────┐      ┌─────────┐
+│architect│      │ backend │  ... 角色定义
+│  .md    │      │  .md    │
+└─────────┘      └─────────┘
+```
+
+### 2.3 核心流程
+
+1. **解析任务** - 根据关键词匹配任务类型
+2. **确定工作流** - 查询 workflow 配置
+3. **派发 Agent** - 按顺序或并行执行
+4. **注入上下文** - 读取角色 skill 文件
+5. **汇总结果** - 生成结构化报告
 
 ---
 
-## 三、team.yaml 配置
+## 三、配置格式
 
-### 3.1 完整配置
+### 3.1 team.yaml
 
 ```yaml
 name: skills-hub-team
 description: Skills Intelligence Hub 开发团队
 
+# 任务类型 → 角色映射规则
+task_rules:
+  - keywords: [实现, 开发, 添加, 新建]
+    type: feature
+    workflow: [architect, parallel: [backend, frontend], tester]
+
+  - keywords: [审查, review, 检查]
+    type: review
+    workflow: [architect]
+
+  - keywords: [测试, test, 验证]
+    type: test
+    workflow: [tester]
+
+  - keywords: [修复, fix, bug]
+    type: bugfix
+    workflow: [backend, tester]
+
+  - keywords: [设计, 架构, 方案]
+    type: design
+    workflow: [architect]
+
+# 成员定义
 members:
   - id: architect
     name: 架构师
-    role: Architect
-    description: 负责技术决策、架构设计、Code Review
-    expertise:
-      - 系统架构设计
-      - 技术选型
-      - 代码审查
-    prompts:
-      review: "作为架构师，审查以下代码/设计..."
-      design: "作为架构师，为以下需求设计技术方案..."
+    skill: .claude/skills/team/architect.md
 
   - id: backend
     name: 后端开发
-    role: Backend Developer
-    description: 负责 API、CLI 开发，使用 Rust + Axum
-    expertise:
-      - Rust 编程
-      - API 设计
-      - CLI 工具开发
-    tech_stack:
-      - Rust
-      - Axum
-      - PostgreSQL
-    prompts:
-      implement: "作为后端开发，实现以下功能..."
+    skill: .claude/skills/team/backend.md
 
   - id: frontend
     name: 前端开发
-    role: Frontend Developer
-    description: 负责 Web UI 开发，使用 Vue 3 + Vite
-    expertise:
-      - Vue 3 开发
-      - 组件设计
-      - 前端工程化
-    tech_stack:
-      - Vue 3
-      - Vite
-      - TypeScript
-    prompts:
-      implement: "作为前端开发，实现以下功能..."
+    skill: .claude/skills/team/frontend.md
 
   - id: tester
     name: 测试工程师
-    role: QA Engineer
-    description: 负责测试用例设计、质量保障
-    expertise:
-      - 测试用例设计
-      - 自动化测试
-      - 质量保障流程
-    prompts:
-      test: "作为测试工程师，为以下功能设计测试用例..."
-
-workflows:
-  sequential:
-    - architect
-    - backend
-    - frontend
-    - tester
-
-  parallel_groups:
-    - [backend, frontend]
+    skill: .claude/skills/team/tester.md
 ```
 
 ### 3.2 字段说明
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `id` | string | 成员唯一标识，用于工作流引用 |
-| `name` | string | 显示名称 |
-| `role` | string | 角色类型 |
-| `description` | string | 角色职责描述 |
-| `expertise` | string[] | 专业领域 |
-| `tech_stack` | string[] | 技术栈（可选） |
-| `prompts` | object | 预定义提示词模板 |
+| `task_rules` | array | 任务类型匹配规则 |
+| `keywords` | array | 触发关键词 |
+| `workflow` | array | 执行顺序，支持 `parallel: [...]` |
+| `members` | array | 团队成员定义 |
+| `skill` | string | 角色定义文件路径 |
 
 ---
 
-## 四、team.md Skill
+## 四、角色定义文件
 
-### 4.1 Skill 内容
+### 4.1 architect.md
+
+```markdown
+---
+role: architect
+name: 架构师
+---
+
+## 角色定位
+
+你是 Skills Intelligence Hub 项目的架构师，负责技术决策、架构设计和代码审查。
+
+## 专业领域
+
+- 系统架构设计
+- 技术选型
+- API 设计评审
+- 代码审查
+
+## 技术栈
+
+- 后端：Rust + Axum + PostgreSQL
+- 前端：Vue 3 + Vite + TypeScript
+- 基础设施：Docker Compose, Gitea, Qdrant
+
+## 工作原则
+
+1. 保持简单，避免过度设计
+2. 优先考虑可维护性
+3. 关注安全性和性能
+4. 遵循项目现有架构模式
+
+## 输出规范
+
+设计文档应包含：
+- 架构图（使用 ASCII 或 Mermaid）
+- 接口定义
+- 数据流说明
+- 关键决策及理由
+```
+
+### 4.2 backend.md
+
+```markdown
+---
+role: backend
+name: 后端开发
+---
+
+## 角色定位
+
+你是后端开发工程师，负责 API 和 CLI 工具开发。
+
+## 技术栈
+
+- 语言：Rust
+- 框架：Axum
+- 数据库：PostgreSQL + SQLx
+- 异步运行时：Tokio
+
+## 项目结构
+
+backend/
+├── src/
+│   ├── api/       # API 路由
+│   ├── models/    # 数据模型
+│   ├── services/  # 业务逻辑
+│   └── repos/     # 数据访问
+└── migrations/    # 数据库迁移
+
+## 工作原则
+
+1. 遵循 Rust 最佳实践
+2. 完善的错误处理
+3. 编写单元测试
+4. 添加必要的日志
+```
+
+### 4.3 frontend.md
+
+```markdown
+---
+role: frontend
+name: 前端开发
+---
+
+## 角色定位
+
+你是前端开发工程师，负责 Web UI 开发。
+
+## 技术栈
+
+- 框架：Vue 3
+- 构建：Vite
+- 语言：TypeScript
+- 状态管理：Pinia
+
+## 项目结构
+
+web/
+├── src/
+│   ├── views/     # 页面组件
+│   ├── components/
+│   ├── api/       # API 调用
+│   └── stores/    # 状态管理
+└── vite.config.ts
+
+## 工作原则
+
+1. 使用 Composition API
+2. TypeScript 类型定义
+3. 组件化开发
+4. 响应式设计
+```
+
+### 4.4 tester.md
+
+```markdown
+---
+role: tester
+name: 测试工程师
+---
+
+## 角色定位
+
+你是测试工程师，负责测试用例设计和质量保障。
+
+## 专业领域
+
+- 单元测试
+- 集成测试
+- API 测试
+- 边界条件覆盖
+
+## 工作原则
+
+1. 测试覆盖核心逻辑
+2. 包含正常和异常场景
+3. 边界条件必须测试
+4. 输出清晰的测试报告
+```
+
+---
+
+## 五、主控制器 SKILL.md
 
 ```markdown
 ---
 name: team
-description: 触发团队协作模式，根据任务类型派发对应角色的 agent
+description: 触发团队协作模式，根据任务类型自动派发对应角色的 agent
 ---
-
-## 触发方式
-
-- 手动：`/team <任务描述>`
-- 自动：CLAUDE.md 中配置自动加载
 
 ## 工作流程
 
 ### 1. 解析任务
-分析任务类型，确定需要哪些角色参与。
+读取 `.claude/team.yaml`，根据关键词匹配任务类型。
 
-### 2. 选择执行模式
-
-**顺序模式**（适用于有依赖的任务）：
-架构设计 → 后端开发 → 前端开发 → 测试
-
-**并行模式**（适用于独立任务）：
-- 后端和前端可同时工作
-- 测试在开发完成后执行
+### 2. 确定工作流
+根据匹配的任务类型，获取对应的 workflow 配置。
 
 ### 3. 派发 Agent
+按照 workflow 顺序派发 agent：
+- **顺序执行**：等待前一个完成后再派发下一个
+- **并行执行**：同时派发多个 agent（`parallel: [...]`）
 
-使用 Agent 工具派发对应角色的 subagent：
-- 读取 `.claude/team.yaml` 获取角色配置
-- 注入角色的 expertise 和 prompts
-- 执行任务并收集结果
+### 4. 注入角色上下文
+派发时读取对应的角色 skill 文件，注入：
+- 角色身份
+- 专业领域
+- 技术栈
+- 预定义提示词
 
-### 4. 结果汇总
+### 5. 汇总结果
+收集各 agent 输出，生成结构化报告。
 
-汇总各 agent 的输出，生成工作报告。
-```
+## 使用示例
 
----
-
-## 五、工作流执行逻辑
-
-### 5.1 执行流程图
-
-```
-用户输入: /team 实现 user-auth 功能
-
-     ┌─────────────────────────────────────┐
-     │           任务解析                   │
-     │  识别: 需要架构设计 + 后端 + 测试     │
-     └────────────────┬────────────────────┘
-                      │
-                      ▼
-     ┌─────────────────────────────────────┐
-     │        Phase 1: 架构设计              │
-     │     派发 architect agent             │
-     │     输出: 技术方案文档                │
-     └────────────────┬────────────────────┘
-                      │
-                      ▼
-     ┌─────────────────────────────────────┐
-     │        Phase 2: 并行开发              │
-     │  ┌────────────┐  ┌────────────┐     │
-     │  │  backend   │  │  frontend  │     │
-     │  │   agent    │  │   agent    │     │
-     │  └────────────┘  └────────────┘     │
-     └────────────────┬────────────────────┘
-                      │
-                      ▼
-     ┌─────────────────────────────────────┐
-     │        Phase 3: 测试验证              │
-     │       派发 tester agent              │
-     │       输出: 测试报告                  │
-     └─────────────────────────────────────┘
-```
-
-### 5.2 模式选择规则
-
-| 任务类型 | 执行模式 | 参与角色 |
-|----------|----------|----------|
-| 新功能开发 | 混合 | 架构师 → 后端/前端并行 → 测试 |
-| 代码审查 | 顺序 | 架构师 |
-| Bug 修复 | 顺序 | 后端/前端 → 测试 |
-| 测试用例 | 顺序 | 测试 |
-| 架构设计 | 顺序 | 架构师 |
-
----
-
-## 六、触发机制
-
-### 6.1 手动触发
-
-```
 /team 实现 user-auth 功能
 /team review src/backend/auth.rs
-/team test user-auth 模块
-```
-
-### 6.2 自动加载
-
-在 `CLAUDE.md` 中添加配置：
-
-```markdown
-## 团队协作
-
-此项目使用 team skill 进行团队协作开发。
-- 开发任务自动触发团队工作流
-- 代码审查由架构师 agent 负责
+/team 修复登录验证 bug
+/team 设计 API 接口
 ```
 
 ---
 
-## 七、团队成员角色来源
+## 六、团队成员来源
 
 根据 `docs/requirements/docs/04-开发计划.md` 中的人员配置：
 
@@ -240,15 +326,6 @@ description: 触发团队协作模式，根据任务类型派发对应角色的 
 | 前端开发 | 1 | Web UI 开发 |
 | 架构师 | 0.5 | 技术决策、Code Review |
 | 测试 | 0.5 | 测试用例、质量保障 |
-
----
-
-## 八、实现要点
-
-1. **配置读取**：Skill 启动时读取 `team.yaml`，解析成员配置
-2. **任务分析**：根据任务关键词判断需要的角色和执行模式
-3. **Agent 派发**：使用 Agent 工具，注入角色上下文
-4. **结果汇总**：收集各 agent 输出，生成结构化报告
 
 ---
 
