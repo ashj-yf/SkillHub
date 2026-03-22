@@ -9,10 +9,10 @@ pub struct Config {
     pub server_port: u16,
     pub max_db_connections: u32,
     pub jwt_expiration_hours: i64,
-    pub minio_endpoint: String,
-    pub minio_access_key: String,
-    pub minio_secret_key: String,
-    pub minio_bucket: String,
+    pub storage_endpoint: String,
+    pub storage_access_key: String,
+    pub storage_secret_key: String,
+    pub storage_bucket: String,
 }
 
 impl Config {
@@ -38,13 +38,13 @@ impl Config {
                 .unwrap_or_else(|_| "24".into())
                 .parse()
                 .context("JWT_EXPIRATION_HOURS must be a valid number")?,
-            minio_endpoint: std::env::var("MINIO_ENDPOINT")
+            storage_endpoint: std::env::var("STORAGE_ENDPOINT")
                 .unwrap_or_else(|_| "http://localhost:9000".into()),
-            minio_access_key: std::env::var("MINIO_ACCESS_KEY")
-                .context("MINIO_ACCESS_KEY environment variable is required")?,
-            minio_secret_key: std::env::var("MINIO_SECRET_KEY")
-                .context("MINIO_SECRET_KEY environment variable is required")?,
-            minio_bucket: std::env::var("MINIO_BUCKET")
+            storage_access_key: std::env::var("STORAGE_ACCESS_KEY")
+                .context("STORAGE_ACCESS_KEY environment variable is required")?,
+            storage_secret_key: std::env::var("STORAGE_SECRET_KEY")
+                .context("STORAGE_SECRET_KEY environment variable is required")?,
+            storage_bucket: std::env::var("STORAGE_BUCKET")
                 .unwrap_or_else(|_| "skills".into()),
         })
     }

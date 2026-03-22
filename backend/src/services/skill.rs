@@ -7,8 +7,8 @@ use crate::models::skill::{CreateSkill, CreateSkillTag, CreateSkillVersion, Skil
 use crate::repos::skill::SkillRepo;
 use crate::storage::Storage;
 
-/// Content size threshold for storing in MinIO (10KB)
-const MINIO_THRESHOLD: usize = 10 * 1024;
+/// Content size threshold for storing in object storage (10KB)
+const STORAGE_THRESHOLD: usize = 10 * 1024;
 
 pub struct SkillService {
     skill_repo: SkillRepo,
@@ -46,7 +46,7 @@ impl SkillService {
             .await?
             .ok_or_else(|| anyhow!("版本或标签 '{}' 不存在", tag))?;
 
-        // If content is not in DB, fetch from MinIO
+        // If content is not in DB, fetch from object storage
         if version.content.is_none() && version.storage_path.starts_with("skills/") {
             let content = self.storage
                 .download_skill_content(skill.id, &version.version)
@@ -165,13 +165,13 @@ impl SkillService {
         // Determine storage strategy based on content size
         let content_bytes = payload.content.as_bytes();
         let content_len = content_bytes.len();
-        let (content, storage_path) = if content_len > MINIO_THRESHOLD {
-            // Store in MinIO for large content
+        let (content, storage_path) = if content_len > STORAGE_THRESHOLD {
+            // Store in object storage for large content
             let path = self.storage
                 .upload_skill_content(skill.id, &payload.version, &payload.content)
                 .await?;
             tracing::info!(
-                "Stored skill {} version {} in MinIO ({} bytes)",
+                "Stored skill {} version {} in object storage ({} bytes)",
                 skill.id, payload.version, content_len
             );
             (None, path)

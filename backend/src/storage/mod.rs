@@ -3,7 +3,7 @@ use aws_config::BehaviorVersion;
 use aws_sdk_s3::primitives::ByteStream;
 use uuid::Uuid;
 
-/// MinIO/S3 storage client for skill content
+/// S3-compatible storage client (RustFS/MinIO/AWS S3)
 #[derive(Clone)]
 pub struct Storage {
     client: aws_sdk_s3::Client,
@@ -18,13 +18,13 @@ impl Storage {
         secret_key: &str,
         bucket: &str,
     ) -> Result<Self> {
-        // Create AWS SDK config for MinIO (S3-compatible)
+        // Create AWS SDK config for S3-compatible storage (RustFS/MinIO/AWS S3)
         let credentials = aws_sdk_s3::config::Credentials::new(
             access_key,
             secret_key,
             None,
             None,
-            "minio",
+            "storage-service",
         );
 
         let config = aws_sdk_s3::Config::builder()
@@ -32,7 +32,7 @@ impl Storage {
             .region(aws_sdk_s3::config::Region::new("us-east-1"))
             .endpoint_url(endpoint)
             .credentials_provider(credentials)
-            .force_path_style(true) // Required for MinIO
+            .force_path_style(true) // Required for S3-compatible storage
             .build();
 
         let client = aws_sdk_s3::Client::from_conf(config);
@@ -73,7 +73,7 @@ impl Storage {
         format!("skills/{}/versions/{}/content", skill_id, version)
     }
 
-    /// Upload skill content to MinIO
+    /// Upload skill content to object storage
     pub async fn upload_skill_content(
         &self,
         skill_id: Uuid,
@@ -90,12 +90,12 @@ impl Storage {
             .content_type("text/plain")
             .send()
             .await
-            .context("Failed to upload skill content to MinIO")?;
+            .context("Failed to upload skill content to storage")?;
 
         Ok(key)
     }
 
-    /// Download skill content from MinIO
+    /// Download skill content from object storage
     pub async fn download_skill_content(
         &self,
         skill_id: Uuid,
@@ -117,7 +117,7 @@ impl Storage {
                     .body
                     .collect()
                     .await
-                    .context("Failed to read skill content from MinIO")?;
+                    .context("Failed to read skill content from storage")?;
                 let content = String::from_utf8(bytes.into_bytes().to_vec())
                     .context("Failed to parse skill content as UTF-8")?;
                 Ok(Some(content))
@@ -129,12 +129,12 @@ impl Storage {
                         return Ok(None);
                     }
                 }
-                Err(e).context("Failed to download skill content from MinIO")
+                Err(e).context("Failed to download skill content from storage")
             }
         }
     }
 
-    /// Delete skill content from MinIO
+    /// Delete skill content from object storage
     pub async fn delete_skill_content(&self, skill_id: Uuid, version: &str) -> Result<()> {
         let key = Self::get_skill_path(skill_id, version);
 
@@ -144,12 +144,12 @@ impl Storage {
             .key(&key)
             .send()
             .await
-            .context("Failed to delete skill content from MinIO")?;
+            .context("Failed to delete skill content from storage")?;
 
         Ok(())
     }
 
-    /// Delete all versions of a skill from MinIO
+    /// Delete all versions of a skill from object storage
     /// Note: This is a best-effort cleanup. For complete cleanup,
     /// use bucket lifecycle policies or list and delete all objects.
     pub async fn delete_skill(&self, _skill_id: Uuid) -> Result<()> {

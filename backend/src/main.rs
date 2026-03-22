@@ -31,16 +31,16 @@ async fn main() -> anyhow::Result<()> {
         .await?;
     tracing::info!("Database connected");
 
-    // 初始化 MinIO 存储
-    tracing::info!("Connecting to MinIO...");
+    // 初始化对象存储
+    tracing::info!("Connecting to object storage...");
     let storage = Storage::new(
-        &config.minio_endpoint,
-        &config.minio_access_key,
-        &config.minio_secret_key,
-        &config.minio_bucket,
+        &config.storage_endpoint,
+        &config.storage_access_key,
+        &config.storage_secret_key,
+        &config.storage_bucket,
     )
     .await?;
-    tracing::info!("MinIO connected");
+    tracing::info!("Object storage connected");
 
     // 配置 CORS（从环境变量读取允许的来源）
     let allowed_origins: Vec<String> = std::env::var("CORS_ORIGINS")

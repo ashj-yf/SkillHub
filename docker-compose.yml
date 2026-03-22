@@ -30,20 +30,19 @@ services:
       timeout: 5s
       retries: 5
 
-  # MinIO 对象存储
-  minio:
-    image: minio/minio:latest
+  # RustFS 对象存储
+  rustfs:
+    image: rustfs/rustfs:latest
     environment:
-      MINIO_ROOT_USER: skillhub
-      MINIO_ROOT_PASSWORD: skillhub123
+      RUSTFS_DATA_DIR: /data
+      RUSTFS_ACCESS_KEY: skillhub
+      RUSTFS_SECRET_KEY: skillhub123
     volumes:
-      - minio_data:/data
+      - rustfs_data:/data
     ports:
       - "9000:9000"
-      - "9001:9001"
-    command: server /data --console-address ":9001"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
       interval: 30s
       timeout: 20s
       retries: 3
@@ -59,10 +58,10 @@ services:
       SERVER_HOST: 0.0.0.0
       SERVER_PORT: 3000
       RUST_LOG: info
-      MINIO_ENDPOINT: http://minio:9000
-      MINIO_ACCESS_KEY: skillhub
-      MINIO_SECRET_KEY: skillhub123
-      MINIO_BUCKET: skills
+      STORAGE_ENDPOINT: http://rustfs:9000
+      STORAGE_ACCESS_KEY: skillhub
+      STORAGE_SECRET_KEY: skillhub123
+      STORAGE_BUCKET: skills
     ports:
       - "3000:3000"
     depends_on:
@@ -70,7 +69,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      minio:
+      rustfs:
         condition: service_healthy
 
   # 前端 Web 服务
@@ -88,4 +87,4 @@ services:
 volumes:
   postgres_data:
   redis_data:
-  minio_data:
+  rustfs_data:
