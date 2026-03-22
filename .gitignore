@@ -105,13 +105,7 @@ coverage/
 # Project specific
 # ====================
 # Subtree directory with its own repository
-docs/requirements/
+docs/
 
-# Claude instructions (personal preferences)
-CLAUDE.md
-.claude/settings.local.json
-.claude/memory/
-
-# Keep team configuration in version control
-!.claude/team.yaml
-!.claude/skills/
+# Claude configuration (personal preferences)
+.claude/
