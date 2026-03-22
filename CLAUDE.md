@@ -6,22 +6,42 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Skills Intelligence Hub 是一个企业级 AI 技能管理平台，核心理念是"让技能主动找到用户"。支持 Claude Code、Cursor、GitHub Copilot 等多种 AI 编程工具的技能模板管理、分发和智能推荐。
 
-需求文档和规划位于 `docs/requirements/` 目录（git subtree 挂载）。
+**目标用户**：中型到大型团队（20-100+ 人），多部门/多业务线组织。
+
+需求文档和规划位于 `docs/requirements/` 目录（软连接到本地独立仓库）。
 
 ## 技术栈
 
-| 组件 | 技术 |
-|------|------|
-| 后端 | Rust + Axum |
-| 前端 | Vue 3 + Vite |
-| CLI | Rust |
-| 关系数据库 | PostgreSQL |
-| 向量数据库 | Qdrant |
-| 缓存 | Redis |
-| Git 服务 | Gitea |
-| 部署 | Docker Compose |
+| 组件 | 技术 | 说明 |
+|------|------|------|
+| 后端 | Rust + Axum | 高性能、类型安全、CLI 代码复用 |
+| 前端 | Vue 3 + Vite | 快速开发、构建迅速 |
+| CLI | Rust | 与后端共享代码 |
+| 关系数据库 | PostgreSQL | 含全文搜索 (tsvector + pg_trgm) |
+| 对象存储 | MinIO | S3 兼容 API、轻量级 |
+| 缓存 | Redis | 会话、热点数据缓存 |
+| 部署 | Docker Compose | 中小规模部署 |
 
-## 项目结构（规划）
+## 架构分层
+
+```
+┌─────────────────────────────────────────────────────┐
+│                    分发层 (Delivery)                  │
+│   CLI 工具  │  Web 市场  │  API/SDK  │  IDE 插件    │
+└─────────────────────────────────────────────────────┘
+                         │
+┌─────────────────────────────────────────────────────┐
+│                    服务层 (Service)                   │
+│   认证授权  │  版本管理  │  搜索推荐  │  权限控制    │
+└─────────────────────────────────────────────────────┘
+                         │
+┌─────────────────────────────────────────────────────┐
+│                    存储层 (Storage)                   │
+│   PostgreSQL  │  MinIO  │  Redis                    │
+└─────────────────────────────────────────────────────┘
+```
+
+## 项目结构
 
 ```
 backend/           # Rust + Axum 后端 API
@@ -29,31 +49,54 @@ backend/           # Rust + Axum 后端 API
 │   ├── api/       # API 路由 (auth.rs, skills.rs, users.rs)
 │   ├── models/    # 数据模型
 │   ├── services/  # 业务逻辑
-│   └── repos/     # 数据访问
+│   ├── repos/     # 数据访问
+│   ├── middleware/# 认证中间件
+│   └── utils/     # JWT、错误处理
 └── migrations/    # 数据库迁移
 
 cli/               # Rust CLI 工具
 ├── src/
-│   ├── commands/  # init, list, pull, search, sense
+│   ├── commands/  # init, list, pull, search, show, tag
 │   └── config.rs
 └── Cargo.toml
 
 web/               # Vue 3 + Vite 前端
 ├── src/
-│   ├── views/     # Market, SkillDetail, Admin
+│   ├── views/     # Market, SkillDetail, Admin, Login, Register
 │   ├── components/
 │   └── stores/
 └── vite.config.ts
 
-docs/requirements/ # 需求文档（git subtree）
+docs/requirements/ # 需求文档（软连接，不推送）
 ```
 
-## 架构分层
+## 搜索方案
 
-1. **感知层 (Context)** - 项目检测、意图识别、上下文聚合
-2. **智能层 (Intelligence)** - 技能图谱、向量引擎、推荐引擎
-3. **存储层 (Storage)** - Git 仓库、向量数据库、关系数据库
-4. **分发层 (Delivery)** - CLI、Web 市场、IDE 插件、API/SDK
+采用 PostgreSQL 全文搜索，无需向量化：
+
+| 能力 | 实现方式 |
+|------|----------|
+| 关键词搜索 | tsvector + tsquery |
+| 模糊匹配 | pg_trgm (trigram) |
+| 搜索排序 | ts_rank |
+| 多字段搜索 | setweight 权重控制 |
+
+## 推荐方案
+
+基于规则推荐，无需向量化：
+
+| 策略 | 权重 | 说明 |
+|------|------|------|
+| 标签匹配 | 40% | 技能标签与项目技术栈匹配 |
+| 热度排序 | 30% | 下载量、评分 |
+| 使用频率 | 20% | 团队使用记录 |
+| 时效性 | 10% | 最近更新时间 |
+
+## 认证方案
+
+- 内置用户系统 + JWT Token
+- 支持扩展：LDAP、OAuth 2.0、SAML
+- 支持 API Key
 
 ## 技能格式
 
@@ -63,23 +106,73 @@ docs/requirements/ # 需求文档（git subtree）
 - `cursor-rule.md` - Cursor 格式
 - `copilot-instruct.md` - Copilot 格式
 
-## Subtree 操作
+### skill.yaml 示例
 
-需求文档目录通过 git subtree 管理：
+```yaml
+id: python-security
+name: Python 安全编码规范
+version: 2.1.0
+description: 基于 OWASP 和实战经验的安全编码技能
+author: security-team
+tags:
+  - python
+  - security
+  - owasp
+
+extends: security-base          # 继承
+composes:                       # 组合
+  - bandit-rules
+  - owasp-top10
+
+visibility: company             # public / company / department / private
+```
+
+## 版本管理
+
+采用 Docker Tag 模式：
+- `skill-slug:latest` - 最新版本
+- `skill-slug:v1.0.0` - 指定版本
+- `skill-slug:v1` - 自动匹配 v1.x.x 最新
+
+## 需求文档目录
+
+`docs/requirements/` 是软连接到本地独立仓库，不推送到 GitHub。
 
 ```bash
-# 拉取上游更新
-git subtree pull --prefix=docs/requirements https://github.com/JokerYF/skills-hub-project.git main --squash
+# 软连接位置
+docs/requirements -> /Users/yf/Desktop/skills-hub-project
 
-# 推送到上游
-git subtree push --prefix=docs/requirements https://github.com/JokerYF/skills-hub-project.git main
+# 更新需求文档
+cd /Users/yf/Desktop/skills-hub-project && git pull
+
+# .gitignore 已排除 docs/ 目录
 ```
+
+## 功能需求清单
+
+### Phase 1 (MVP)
+- [x] 用户认证（注册/登录/JWT）
+- [x] 技能 CRUD
+- [x] 技能版本管理（Docker Tag 模式）
+- [x] CLI 基础命令（init/list/pull/search/show/tag）
+- [x] Web 技能市场
+- [ ] 权限控制（RBAC）
+- [ ] 部门管理
+
+### Phase 2
+- [ ] 项目上下文感知
+- [ ] 智能推荐
+- [ ] 多格式支持（Cursor/Copilot）
+- [ ] 技能继承/组合
+
+### Phase 3
+- [ ] IDE 插件
+- [ ] 评分系统
+- [ ] API/SDK
 
 ## 团队协作
 
 此项目使用 `/team` 命令触发团队协作模式。
-
-### 团队成员
 
 | 角色 | 职责 |
 |------|------|
