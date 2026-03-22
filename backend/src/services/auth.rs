@@ -79,9 +79,23 @@ impl AuthService {
     }
 
     pub async fn validate_token(&self, token: &str) -> Result<User> {
-        let claims = crate::utils::jwt::verify_token(token, &self.jwt_secret)?;
-        let user_id = uuid::Uuid::parse_str(&claims.sub)?;
+    let claims = crate::utils::jwt::verify_token(token, &self.jwt_secret)?;
+    let user_id = uuid::Uuid::parse_str(&claims.sub)?;
 
+    let user = self.user_repo
+        .find_by_id(user_id)
+        .await?
+        .ok_or_else(|| anyhow!("用户不存在"))?;
+
+    if !user.is_active {
+        return Err(anyhow!("账户已被禁用"));
+    }
+
+    Ok(user)
+    }
+
+    /// 通过用户 ID 获取用户信息
+    pub async fn get_user_by_id(&self, user_id: uuid::Uuid) -> Result<User> {
         let user = self.user_repo
             .find_by_id(user_id)
             .await?

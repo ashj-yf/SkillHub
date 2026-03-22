@@ -5,11 +5,11 @@ use axum::{
     Json, Router,
 };
 use serde::{Deserialize, Serialize};
-use sqlx::PgPool;
-use uuid::Uuid;
 
+use crate::middleware::auth::AuthUser;
 use crate::models::skill::{CreateSkill, CreateSkillTag, CreateSkillVersion, Skill, SkillTag, SkillTagResponse, SkillVersion, UpdateSkill, SkillManifest};
 use crate::services::skill::SkillService;
+use crate::state::AppState;
 use crate::utils::error::ApiError;
 
 #[derive(Debug, Deserialize)]
@@ -61,7 +61,7 @@ pub struct SkillVersionResponse {
     pub version_info: SkillVersion,
 }
 
-pub fn routes() -> Router<PgPool> {
+pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/skills", get(list))
         .route("/skills", post(create))
@@ -80,11 +80,13 @@ pub fn routes() -> Router<PgPool> {
         .route("/skills/:slug/manifest", get(get_manifest))
 }
 
+// ==================== 公开 API ====================
+
 pub async fn list(
-    State(db): State<PgPool>,
+    State(state): State<AppState>,
     Query(query): Query<SearchQuery>,
 ) -> Result<Json<Vec<Skill>>, ApiError> {
-    let service = SkillService::new(db);
+    let service = SkillService::new(state.db);
 
     let skills = service.list(query.q.as_deref(), query.tags.as_deref(), query.page, query.sort.as_deref()).await?;
 
@@ -92,10 +94,10 @@ pub async fn list(
 }
 
 pub async fn get_by_slug(
-    State(db): State<PgPool>,
+    State(state): State<AppState>,
     Path(slug): Path<String>,
 ) -> Result<Json<Skill>, ApiError> {
-    let service = SkillService::new(db);
+    let service = SkillService::new(state.db);
 
     let skill = service.get_by_slug(&slug).await?;
 
@@ -106,10 +108,10 @@ pub async fn get_by_slug(
 }
 
 pub async fn get_by_tag(
-    State(db): State<PgPool>,
+    State(state): State<AppState>,
     Path((slug, tag)): Path<(String, String)>,
 ) -> Result<Json<SkillVersionResponse>, ApiError> {
-    let service = SkillService::new(db);
+    let service = SkillService::new(state.db);
 
     let (skill, version) = service.get_version(&slug, &tag).await?;
 
@@ -123,11 +125,14 @@ pub async fn get_by_tag(
     }))
 }
 
+// ==================== 需要认证的 API ====================
+
 pub async fn create(
-    State(db): State<PgPool>,
+    State(state): State<AppState>,
+    AuthUser(user): AuthUser,
     Json(payload): Json<CreateSkillRequest>,
 ) -> Result<(StatusCode, Json<Skill>), ApiError> {
-    let service = SkillService::new(db);
+    let service = SkillService::new(state.db);
 
     // 验证输入
     if payload.name.is_empty() || payload.name.len() > 100 {
@@ -146,8 +151,8 @@ pub async fn create(
         is_public: payload.is_public,
     };
 
-    // 临时使用一个测试用户 ID（实际应从认证获取）
-    let author_id = Uuid::nil();
+    // 从 JWT 获取实际用户 ID
+    let author_id = user.id;
 
     let skill = service.create(author_id, create_skill).await?;
 
@@ -155,11 +160,12 @@ pub async fn create(
 }
 
 pub async fn update(
-    State(db): State<PgPool>,
+    State(state): State<AppState>,
+    AuthUser(user): AuthUser,
     Path(slug): Path<String>,
     Json(payload): Json<UpdateSkillRequest>,
 ) -> Result<Json<Skill>, ApiError> {
-    let service = SkillService::new(db);
+    let service = SkillService::new(state.db);
 
     let update_skill = UpdateSkill {
         name: payload.name,
@@ -169,8 +175,8 @@ pub async fn update(
         is_public: payload.is_public,
     };
 
-    // 临时使用一个测试用户 ID（实际应从认证获取）
-    let author_id = Uuid::nil();
+    // 从 JWT 获取实际用户 ID
+    let author_id = user.id;
 
     let skill = service.update_by_slug(author_id, &slug, update_skill).await?;
 
@@ -178,13 +184,14 @@ pub async fn update(
 }
 
 pub async fn delete_skill(
-    State(db): State<PgPool>,
+    State(state): State<AppState>,
+    AuthUser(user): AuthUser,
     Path(slug): Path<String>,
 ) -> Result<StatusCode, ApiError> {
-    let service = SkillService::new(db);
+    let service = SkillService::new(state.db);
 
-    // 临时使用一个测试用户 ID（实际应从认证获取）
-    let author_id = Uuid::nil();
+    // 从 JWT 获取实际用户 ID
+    let author_id = user.id;
 
     service.delete_by_slug(author_id, &slug).await?;
 
@@ -194,10 +201,10 @@ pub async fn delete_skill(
 // ==================== 版本管理 ====================
 
 pub async fn list_versions(
-    State(db): State<PgPool>,
+    State(state): State<AppState>,
     Path(slug): Path<String>,
 ) -> Result<Json<Vec<SkillVersion>>, ApiError> {
-    let service = SkillService::new(db);
+    let service = SkillService::new(state.db);
 
     let versions = service.list_versions(&slug).await?;
 
@@ -205,11 +212,12 @@ pub async fn list_versions(
 }
 
 pub async fn create_version(
-    State(db): State<PgPool>,
+    State(state): State<AppState>,
+    AuthUser(user): AuthUser,
     Path(slug): Path<String>,
     Json(payload): Json<CreateVersionRequest>,
 ) -> Result<(StatusCode, Json<SkillVersion>), ApiError> {
-    let service = SkillService::new(db);
+    let service = SkillService::new(state.db);
 
     let create_version = CreateSkillVersion {
         version: payload.version,
@@ -217,8 +225,8 @@ pub async fn create_version(
         changelog: payload.changelog,
     };
 
-    // 临时使用一个测试用户 ID（实际应从认证获取）
-    let author_id = Uuid::nil();
+    // 从 JWT 获取实际用户 ID
+    let author_id = user.id;
 
     let version = service.create_version(author_id, &slug, create_version).await?;
 
@@ -228,10 +236,10 @@ pub async fn create_version(
 // ==================== 标签管理 ====================
 
 pub async fn list_tags(
-    State(db): State<PgPool>,
+    State(state): State<AppState>,
     Path(slug): Path<String>,
 ) -> Result<Json<Vec<SkillTagResponse>>, ApiError> {
-    let service = SkillService::new(db);
+    let service = SkillService::new(state.db);
 
     let tags = service.list_tags_with_version(&slug).await?;
 
@@ -239,19 +247,20 @@ pub async fn list_tags(
 }
 
 pub async fn create_tag(
-    State(db): State<PgPool>,
+    State(state): State<AppState>,
+    AuthUser(user): AuthUser,
     Path(slug): Path<String>,
     Json(payload): Json<CreateTagRequest>,
 ) -> Result<Json<SkillTag>, ApiError> {
-    let service = SkillService::new(db);
+    let service = SkillService::new(state.db);
 
     let create_tag = CreateSkillTag {
         tag: payload.tag,
         version: payload.version,
     };
 
-    // 临时使用一个测试用户 ID（实际应从认证获取）
-    let author_id = Uuid::nil();
+    // 从 JWT 获取实际用户 ID
+    let author_id = user.id;
 
     let tag = service.create_tag(author_id, &slug, create_tag).await?;
 
@@ -259,13 +268,14 @@ pub async fn create_tag(
 }
 
 pub async fn delete_tag(
-    State(db): State<PgPool>,
+    State(state): State<AppState>,
+    AuthUser(user): AuthUser,
     Path((slug, tag)): Path<(String, String)>,
 ) -> Result<StatusCode, ApiError> {
-    let service = SkillService::new(db);
+    let service = SkillService::new(state.db);
 
-    // 临时使用一个测试用户 ID（实际应从认证获取）
-    let author_id = Uuid::nil();
+    // 从 JWT 获取实际用户 ID
+    let author_id = user.id;
 
     service.delete_tag(author_id, &slug, &tag).await?;
 
@@ -275,10 +285,10 @@ pub async fn delete_tag(
 // ==================== Manifest ====================
 
 pub async fn get_manifest(
-    State(db): State<PgPool>,
+    State(state): State<AppState>,
     Path(slug): Path<String>,
 ) -> Result<Json<SkillManifest>, ApiError> {
-    let service = SkillService::new(db);
+    let service = SkillService::new(state.db);
 
     let manifest = service.get_manifest(&slug).await?;
 

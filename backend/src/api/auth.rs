@@ -5,12 +5,11 @@ use axum::{
     Json, Router,
 };
 use serde::Deserialize;
-use sqlx::PgPool;
 
 use crate::models::user::{CreateUser, LoginRequest};
 use crate::services::auth::AuthService;
+use crate::state::AppState;
 use crate::utils::error::ApiError;
-use crate::config::Config;
 
 #[derive(Debug, Deserialize)]
 pub struct RegisterRequest {
@@ -19,7 +18,7 @@ pub struct RegisterRequest {
     pub password: String,
 }
 
-pub fn routes() -> Router<PgPool> {
+pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/auth/register", post(register))
         .route("/auth/login", post(login))
@@ -31,11 +30,10 @@ async fn health() -> &'static str {
 }
 
 pub async fn register(
-    State(db): State<PgPool>,
+    State(state): State<AppState>,
     Json(payload): Json<RegisterRequest>,
 ) -> Result<StatusCode, ApiError> {
-    let config = Config::from_env()?;
-    let service = AuthService::new(db, config.jwt_secret, config.jwt_expiration_hours);
+    let service = AuthService::new(state.db, state.jwt_secret, 24);
 
     // 验证输入
     if payload.username.is_empty() || payload.username.len() > 50 {
@@ -60,11 +58,10 @@ pub async fn register(
 }
 
 pub async fn login(
-    State(db): State<PgPool>,
+    State(state): State<AppState>,
     Json(payload): Json<LoginRequest>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
-    let config = Config::from_env()?;
-    let service = AuthService::new(db, config.jwt_secret, config.jwt_expiration_hours);
+    let service = AuthService::new(state.db, state.jwt_secret, 24);
 
     let token = service.login(payload).await?;
 

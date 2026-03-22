@@ -6,6 +6,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use skillhub_backend::api;
 use skillhub_backend::config::Config;
+use skillhub_backend::state::AppState;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -36,6 +37,12 @@ async fn main() -> anyhow::Result<()> {
         .map(|s| s.trim().to_string())
         .collect();
 
+    // 构建应用状态
+    let state = AppState {
+        db: db.clone(),
+        jwt_secret: config.jwt_secret.clone(),
+    };
+
     // 构建路由
     let app = Router::new()
         .nest("/api", api::routes())
@@ -50,7 +57,7 @@ async fn main() -> anyhow::Result<()> {
                 .allow_methods([hyper::Method::GET, hyper::Method::POST, hyper::Method::PUT, hyper::Method::DELETE])
                 .allow_headers([hyper::header::AUTHORIZATION, hyper::header::CONTENT_TYPE])
         )
-        .with_state(db);
+        .with_state(state);
 
     // 启动服务器
     let addr: SocketAddr = format!("{}:{}", config.server_host, config.server_port).parse()?;

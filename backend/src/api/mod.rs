@@ -3,9 +3,9 @@ pub mod skills;
 pub mod users;
 
 use axum::Router;
-use sqlx::PgPool;
+use skillhub_backend::state::AppState;
 
-pub fn routes() -> Router<PgPool> {
+pub fn routes() -> Router<AppState> {
     Router::new()
         .merge(auth::routes())
         .merge(skills::routes())
