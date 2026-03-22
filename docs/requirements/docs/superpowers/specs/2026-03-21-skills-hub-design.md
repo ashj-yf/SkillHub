@@ -96,16 +96,64 @@ category: security
 visibility: public      # public / internal / department / team / private
 ```
 
-### 3.3 存储结构（MinIO）
+### 3.3 版本管理（Docker Tag 模式）
+
+**技能引用格式：** `{skill-id}:{tag}`
+
+```
+python-security:latest     # 最新版本
+python-security:v1.0.0     # 指定版本
+python-security:v1         # 版本前缀（自动匹配 v1.x.x 最新）
+python-security:stable     # 稳定版标签
+```
+
+**Tag 规则：**
+
+| Tag 类型 | 示例 | 说明 |
+|----------|------|------|
+| latest | `:latest` | 默认标签，指向最新发布版本 |
+| 语义版本 | `:v1.0.0` | 完整版本号 |
+| 主版本 | `:v1` | 指向 v1.x.x 最新版本 |
+| 预发布 | `:v2.0.0-beta.1` | 预发布版本 |
+| 自定义 | `:stable`, `:dev` | 用户定义的命名标签 |
+
+### 3.4 存储结构（MinIO）
 
 ```
 buckets/
 └── skills/
     └── {skill-id}/
-        └── v{version}/
-            ├── skill.yaml
-            ├── skill.md
-            └── assets/
+        ├── manifest.json           # 标签索引
+        ├── v1.0.0/                 # 版本目录（内容寻址）
+        │   ├── skill.yaml
+        │   ├── skill.md
+        │   └── assets/
+        ├── v1.1.0/
+        │   └── ...
+        └── v2.0.0/
+            └── ...
+```
+
+**manifest.json 示例：**
+
+```json
+{
+  "skill_id": "python-security",
+  "name": "Python 安全编码规范",
+  "tags": {
+    "latest": "v2.0.0",
+    "stable": "v2.0.0",
+    "v2": "v2.0.0",
+    "v2.0": "v2.0.0",
+    "v2.0.0": "v2.0.0",
+    "v1": "v1.1.0",
+    "v1.0": "v1.0.0",
+    "v1.0.0": "v1.0.0",
+    "dev": "v2.1.0-beta.1"
+  },
+  "versions": ["v2.0.0", "v1.1.0", "v1.0.0", "v2.1.0-beta.1"],
+  "updated_at": "2026-03-21T10:00:00Z"
+}
 ```
 
 ---
@@ -133,9 +181,10 @@ buckets/
 
 ### 4.3 版本管理
 
-- 用户看到的是最新版
-- 管理员可查看历史版本
-- 支持版本对比、回滚
+- 默认下载 `:latest` 标签版本
+- 支持指定版本：`skill pull python-security:v1.0.0`
+- 管理员可管理标签（创建、移动、删除）
+- 支持 `v1` 短版本号，自动指向 `v1.x.x` 最新版本
 
 ### 4.4 搜索能力
 
@@ -160,16 +209,33 @@ CREATE TABLE skills (
   updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- 技能版本表
+-- 技能版本表（存储实际版本内容）
 CREATE TABLE skill_versions (
   id UUID PRIMARY KEY,
   skill_id UUID REFERENCES skills(id),
-  version INT NOT NULL,
+  version VARCHAR(50) NOT NULL,       -- v1.0.0, v2.1.0-beta.1
   storage_path VARCHAR(500) NOT NULL,
   change_note TEXT,
+  digest VARCHAR(64),                 -- 内容哈希，类似 Docker digest
   created_at TIMESTAMP DEFAULT NOW(),
-  created_by VARCHAR(100)
+  created_by VARCHAR(100),
+  UNIQUE(skill_id, version)
 );
+
+-- 技能标签表（类似 Docker tag）
+CREATE TABLE skill_tags (
+  id UUID PRIMARY KEY,
+  skill_id UUID REFERENCES skills(id),
+  tag VARCHAR(50) NOT NULL,           -- latest, stable, v1, v1.0.0
+  version_id UUID REFERENCES skill_versions(id),
+  updated_at TIMESTAMP DEFAULT NOW(),
+  updated_by VARCHAR(100),
+  UNIQUE(skill_id, tag)
+);
+
+-- 创建索引
+CREATE INDEX idx_skill_tags_skill ON skill_tags(skill_id);
+CREATE INDEX idx_skill_versions_skill ON skill_versions(skill_id);
 
 -- 标签表
 CREATE TABLE tags (
@@ -212,9 +278,18 @@ skill list
 skill list --category <category>
 skill info <skill-id>
 
-# 下载
-skill pull <skill-id>
+# 下载（Docker Tag 风格）
+skill pull <skill-id>                  # 默认 :latest
+skill pull <skill-id>:latest           # 最新版本
+skill pull <skill-id>:v1.0.0           # 指定版本
+skill pull <skill-id>:v1               # 主版本最新
+skill pull <skill-id>:stable           # 自定义标签
 skill pull <skill-id> --output ./path/
+
+# 标签管理（管理员/创作者）
+skill tag <skill-id>                   # 查看所有标签
+skill tag <skill-id> add v1.0.0 stable # 添加标签
+skill tag <skill-id> rm beta           # 删除标签
 
 # 用户操作
 skill login
@@ -269,17 +344,19 @@ project/
 | Tool | 描述 | 参数 |
 |------|------|------|
 | `search_skills` | 搜索技能 | keyword, tags, category, limit |
-| `get_skill` | 获取技能内容 | skill_id, version |
+| `get_skill` | 获取技能内容 | skill_id, tag (default: latest) |
 | `list_skills` | 列出技能 | category, sort |
+| `list_tags` | 列出技能标签 | skill_id |
 
 ### 6.3 MCP Resources
 
 | Resource | 描述 |
 |----------|------|
 | `skills://list` | 技能列表 |
-| `skills://{skill-id}` | 技能详情 |
-| `skills://{skill-id}/content` | 技能内容 |
-| `skills://{skill-id}@v{version}` | 指定版本 |
+| `skills://{skill-id}` | 技能详情（默认 latest） |
+| `skills://{skill-id}:{tag}` | 指定标签版本 |
+| `skills://{skill-id}/content` | 技能内容（latest） |
+| `skills://{skill-id}/content:{tag}` | 指定版本内容 |
 
 ### 6.4 用户配置
 
@@ -317,13 +394,17 @@ async def search_skills(keyword: str, tags: list[str] = None, limit: int = 10):
         return resp.json()
 
 @mcp.tool()
-async def get_skill(skill_id: str, version: str = None):
-    """获取指定技能的完整内容"""
-    url = f"{API_BASE}/skills/{skill_id}"
-    if version:
-        url += f"?version={version}"
+async def get_skill(skill_id: str, tag: str = "latest"):
+    """获取指定技能的完整内容，默认获取最新版本"""
     async with httpx.AsyncClient() as client:
-        resp = await client.get(url)
+        resp = await client.get(f"{API_BASE}/skills/{skill_id}/{tag}")
+        return resp.json()
+
+@mcp.tool()
+async def list_tags(skill_id: str):
+    """列出技能的所有可用标签"""
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(f"{API_BASE}/skills/{skill_id}/tags")
         return resp.json()
 
 @mcp.resource("skills://list")
@@ -500,9 +581,12 @@ skill permission grant <skill> --user <user> --permission read
 |------|------|------|
 | GET | `/api/v1/skills` | 技能列表 |
 | GET | `/api/v1/skills/search` | 搜索技能 |
-| GET | `/api/v1/skills/{id}` | 技能详情 |
-| GET | `/api/v1/skills/{id}/versions` | 版本列表 |
-| GET | `/api/v1/skills/{id}/download` | 下载技能 |
+| GET | `/api/v1/skills/{id}` | 技能详情（默认 latest） |
+| GET | `/api/v1/skills/{id}/{tag}` | 指定标签版本 |
+| GET | `/api/v1/skills/{id}/tags` | 标签列表 |
+| POST | `/api/v1/skills/{id}/tags` | 创建标签 |
+| DELETE | `/api/v1/skills/{id}/tags/{tag}` | 删除标签 |
+| GET | `/api/v1/skills/{id}/{tag}/download` | 下载技能 |
 | POST | `/api/v1/skills` | 创建技能 |
 | PUT | `/api/v1/skills/{id}` | 更新技能 |
 | DELETE | `/api/v1/skills/{id}` | 删除技能 |
@@ -510,6 +594,37 @@ skill permission grant <skill> --user <user> --permission read
 | POST | `/api/v1/auth/logout` | 登出 |
 | GET | `/api/v1/users/me` | 当前用户信息 |
 | GET | `/api/v1/users/me/skills` | 我的技能 |
+
+### 8.2 技能引用解析
+
+```
+python-security           → skill_id=python-security, tag=latest
+python-security:latest    → skill_id=python-security, tag=latest
+python-security:v1.0.0    → skill_id=python-security, tag=v1.0.0
+python-security:v1        → skill_id=python-security, tag=v1
+```
+
+### 8.3 API 示例
+
+```bash
+# 获取最新版本
+GET /api/v1/skills/python-security/latest
+
+# 获取指定版本
+GET /api/v1/skills/python-security/v1.0.0
+
+# 获取主版本最新
+GET /api/v1/skills/python-security/v1
+# 返回 v1.x.x 中最新的版本内容
+
+# 列出所有标签
+GET /api/v1/skills/python-security/tags
+# 返回: {"tags": ["latest", "stable", "v1", "v1.0.0", "v1.1.0", "v2", "v2.0.0"]}
+
+# 创建新标签
+POST /api/v1/skills/python-security/tags
+{"tag": "beta", "version": "v2.1.0-beta.1"}
+```
 
 ---
 

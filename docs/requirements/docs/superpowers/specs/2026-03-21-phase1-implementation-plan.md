@@ -176,7 +176,6 @@ CREATE TABLE skills (
     description TEXT,
     readme TEXT,
     author_id UUID REFERENCES users(id),
-    version VARCHAR(20) DEFAULT '1.0.0',
     tags TEXT[],
     is_public BOOLEAN DEFAULT true,
     download_count INT DEFAULT 0,
@@ -184,21 +183,36 @@ CREATE TABLE skills (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 技能版本表
+-- 技能版本表（Docker Tag 模式）
 CREATE TABLE skill_versions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     skill_id UUID REFERENCES skills(id) ON DELETE CASCADE,
-    version VARCHAR(20) NOT NULL,
-    content TEXT NOT NULL,
+    version VARCHAR(50) NOT NULL,       -- v1.0.0, v2.1.0-beta.1
+    storage_path VARCHAR(500) NOT NULL,
     changelog TEXT,
+    digest VARCHAR(64),                 -- 内容哈希
     created_at TIMESTAMPTZ DEFAULT NOW(),
+    created_by UUID REFERENCES users(id),
     UNIQUE(skill_id, version)
+);
+
+-- 技能标签表（类似 Docker Tag）
+CREATE TABLE skill_tags (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    skill_id UUID REFERENCES skills(id) ON DELETE CASCADE,
+    tag VARCHAR(50) NOT NULL,           -- latest, stable, v1, v1.0.0
+    version_id UUID REFERENCES skill_versions(id) ON DELETE CASCADE,
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_by UUID REFERENCES users(id),
+    UNIQUE(skill_id, tag)
 );
 
 -- 索引
 CREATE INDEX idx_skills_slug ON skills(slug);
 CREATE INDEX idx_skills_author ON skills(author_id);
 CREATE INDEX idx_skills_tags ON skills USING GIN(tags);
+CREATE INDEX idx_skill_tags_skill ON skill_tags(skill_id);
+CREATE INDEX idx_skill_versions_skill ON skill_versions(skill_id);
 ```
 
 **Model 示例 (models/user.rs)：**
@@ -429,10 +443,31 @@ enum Commands {
     Init,
     /// 列出可用技能
     List,
-    /// 下载技能
-    Pull { slug: String },
+    /// 下载技能（支持 Docker Tag 语法）
+    Pull {
+        /// 技能引用，格式: skill-id 或 skill-id:tag
+        /// 示例: python-security, python-security:latest, python-security:v1.0.0
+        reference: String,
+    },
     /// 搜索技能
     Search { query: String },
+    /// 管理技能标签
+    Tag {
+        /// 技能 ID
+        skill_id: String,
+        #[command(subcommand)]
+        action: TagAction,
+    },
+}
+
+#[derive(Subcommand)]
+enum TagAction {
+    /// 列出所有标签
+    List,
+    /// 添加标签
+    Add { version: String, tag: String },
+    /// 删除标签
+    Rm { tag: String },
 }
 
 #[tokio::main]
@@ -442,8 +477,9 @@ async fn main() -> anyhow::Result<()> {
     match cli.command {
         Commands::Init => commands::init::run().await?,
         Commands::List => commands::list::run().await?,
-        Commands::Pull { slug } => commands::pull::run(&slug).await?,
+        Commands::Pull { reference } => commands::pull::run(&reference).await?,
         Commands::Search { query } => commands::search::run(&query).await?,
+        Commands::Tag { skill_id, action } => commands::tag::run(&skill_id, action).await?,
     }
 
     Ok(())
@@ -456,15 +492,27 @@ use anyhow::Result;
 use crate::config::Config;
 use crate::api::Client;
 
-pub async fn run(slug: &str) -> Result<()> {
+/// 解析技能引用，返回 (skill_id, tag)
+/// "python-security" -> ("python-security", "latest")
+/// "python-security:v1.0.0" -> ("python-security", "v1.0.0")
+fn parse_reference(reference: &str) -> (&str, &str) {
+    match reference.split_once(':') {
+        Some((id, tag)) => (id, tag),
+        None => (reference, "latest"),
+    }
+}
+
+pub async fn run(reference: &str) -> Result<()> {
     let config = Config::load()?;
     let client = Client::new(&config.api_url)?;
 
-    println!("正在获取技能: {}", slug);
-    let skill = client.get_skill(slug).await?;
+    let (skill_id, tag) = parse_reference(reference);
+    println!("正在获取技能: {}:{}\n", skill_id, tag);
+
+    let skill = client.get_skill(skill_id, tag).await?;
 
     // 写入本地
-    let skill_dir = config.skills_dir.join(slug);
+    let skill_dir = config.skills_dir.join(skill_id);
     std::fs::create_dir_all(&skill_dir)?;
 
     // 写入 skill.yaml
@@ -477,7 +525,7 @@ pub async fn run(slug: &str) -> Result<()> {
         skill.readme,
     )?;
 
-    println!("✓ 技能 {} 已安装到 {}", slug, skill_dir.display());
+    println!("✓ 技能 {}:{} 已安装到 {}", skill_id, tag, skill_dir.display());
 
     Ok(())
 }
@@ -486,8 +534,10 @@ pub async fn run(slug: &str) -> Result<()> {
 **验收标准：**
 - [ ] `skillhub init` 创建配置文件
 - [ ] `skillhub list` 显示技能列表
-- [ ] `skillhub pull <slug>` 下载技能
+- [ ] `skillhub pull <skill-id>` 下载最新版本
+- [ ] `skillhub pull <skill-id>:v1.0.0` 下载指定版本
 - [ ] `skillhub search <query>` 搜索技能
+- [ ] `skillhub tag <skill-id> list` 列出标签
 
 ---
 
