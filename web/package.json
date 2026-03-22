@@ -1,0 +1,27 @@
+{
+  "name": "skillhub-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "vue": "^3.4",
+    "vue-router": "^4",
+    "pinia": "^2",
+    "axios": "^1",
+    "@vueuse/core": "^10"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5",
+    "typescript": "^5",
+    "vite": "^5",
+    "vue-tsc": "^2",
+    "tailwindcss": "^3",
+    "postcss": "^8",
+    "autoprefixer": "^10"
+  }
+}

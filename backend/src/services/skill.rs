@@ -1,0 +1,225 @@
+use anyhow::{anyhow, Result};
+use sqlx::PgPool;
+use uuid::Uuid;
+
+use crate::models::skill::{CreateSkill, CreateSkillTag, CreateSkillVersion, Skill, SkillTag, SkillTagResponse, SkillVersion, SkillManifest, UpdateSkill};
+use crate::repos::skill::SkillRepo;
+
+pub struct SkillService {
+    skill_repo: SkillRepo,
+}
+
+impl SkillService {
+    pub fn new(pool: PgPool) -> Self {
+        Self {
+            skill_repo: SkillRepo::new(pool),
+        }
+    }
+
+    pub async fn list(&self, q: Option<&str>, tags: Option<&str>, page: Option<u32>, sort: Option<&str>) -> Result<Vec<Skill>> {
+        let page = page.unwrap_or(1);
+        let per_page = 20;
+
+        self.skill_repo.list(q, tags, page, per_page, sort).await
+    }
+
+    pub async fn get_by_slug(&self, slug: &str) -> Result<Skill> {
+        self.skill_repo
+            .find_by_slug(slug)
+            .await?
+            .ok_or_else(|| anyhow!("技能不存在"))
+    }
+
+    /// 获取技能的指定版本（支持 tag）
+    pub async fn get_version(&self, slug: &str, tag: &str) -> Result<(Skill, SkillVersion)> {
+        let skill = self.get_by_slug(slug).await?;
+
+        let version = self.skill_repo
+            .resolve_version(skill.id, tag)
+            .await?
+            .ok_or_else(|| anyhow!("版本或标签 '{}' 不存在", tag))?;
+
+        Ok((skill, version))
+    }
+
+    pub async fn create(&self, author_id: Uuid, payload: CreateSkill) -> Result<Skill> {
+        // 验证 slug 格式
+        if !is_valid_slug(&payload.slug) {
+            return Err(anyhow!("Slug 只能包含小写字母、数字和连字符"));
+        }
+
+        // 检查 slug 是否已存在
+        if self.skill_repo.find_by_slug(&payload.slug).await?.is_some() {
+            return Err(anyhow!("Slug 已被使用"));
+        }
+
+        self.skill_repo.create(author_id, &payload).await
+    }
+
+    pub async fn update(&self, author_id: Uuid, skill_id: Uuid, payload: UpdateSkill) -> Result<Skill> {
+        // 检查技能是否存在且属于该用户
+        let skill = self.skill_repo
+            .find_by_id(skill_id)
+            .await?
+            .ok_or_else(|| anyhow!("技能不存在"))?;
+
+        if skill.author_id != Some(author_id) {
+            return Err(anyhow!("无权修改此技能"));
+        }
+
+        self.skill_repo.update(skill_id, &payload).await
+    }
+
+    /// 通过 slug 更新技能
+    pub async fn update_by_slug(&self, author_id: Uuid, slug: &str, payload: UpdateSkill) -> Result<Skill> {
+        // 检查技能是否存在且属于该用户
+        let skill = self.skill_repo
+            .find_by_slug(slug)
+            .await?
+            .ok_or_else(|| anyhow!("技能不存在"))?;
+
+        if skill.author_id != Some(author_id) {
+            return Err(anyhow!("无权修改此技能"));
+        }
+
+        self.skill_repo.update(skill.id, &payload).await
+    }
+
+    pub async fn delete(&self, author_id: Uuid, skill_id: Uuid) -> Result<()> {
+        // 检查技能是否存在且属于该用户
+        let skill = self.skill_repo
+            .find_by_id(skill_id)
+            .await?
+            .ok_or_else(|| anyhow!("技能不存在"))?;
+
+        if skill.author_id != Some(author_id) {
+            return Err(anyhow!("无权删除此技能"));
+        }
+
+        self.skill_repo.delete(skill_id).await
+    }
+
+    /// 通过 slug 删除技能
+    pub async fn delete_by_slug(&self, author_id: Uuid, slug: &str) -> Result<()> {
+        // 检查技能是否存在且属于该用户
+        let skill = self.skill_repo
+            .find_by_slug(slug)
+            .await?
+            .ok_or_else(|| anyhow!("技能不存在"))?;
+
+        if skill.author_id != Some(author_id) {
+            return Err(anyhow!("无权删除此技能"));
+        }
+
+        self.skill_repo.delete(skill.id).await
+    }
+
+    pub async fn increment_download(&self, skill_id: Uuid) -> Result<()> {
+        self.skill_repo.increment_download_count(skill_id).await
+    }
+
+    pub async fn list_by_author(&self, author_id: Uuid) -> Result<Vec<Skill>> {
+        self.skill_repo.find_by_author(author_id).await
+    }
+
+    // ==================== 版本管理 ====================
+
+    pub async fn create_version(&self, author_id: Uuid, slug: &str, payload: CreateSkillVersion) -> Result<SkillVersion> {
+        let skill = self.get_by_slug(slug).await?;
+
+        if skill.author_id != Some(author_id) {
+            return Err(anyhow!("无权为此技能创建版本"));
+        }
+
+        // 验证版本号格式
+        if !is_valid_version(&payload.version) {
+            return Err(anyhow!("版本号格式无效，应为 v1.0.0 格式"));
+        }
+
+        // 检查版本是否已存在
+        if self.skill_repo.find_version(skill.id, &payload.version).await?.is_some() {
+            return Err(anyhow!("版本 {} 已存在", payload.version));
+        }
+
+        let version = self.skill_repo.create_version(skill.id, author_id, &payload).await?;
+
+        // 如果是第一个版本，自动创建 latest 标签
+        let versions = self.skill_repo.list_versions(skill.id).await?;
+        if versions.len() == 1 {
+            self.skill_repo.create_tag(skill.id, "latest", version.id, author_id).await?;
+        }
+
+        Ok(version)
+    }
+
+    pub async fn list_versions(&self, slug: &str) -> Result<Vec<SkillVersion>> {
+        let skill = self.get_by_slug(slug).await?;
+        self.skill_repo.list_versions(skill.id).await
+    }
+
+    // ==================== 标签管理 ====================
+
+    pub async fn list_tags(&self, slug: &str) -> Result<Vec<SkillTag>> {
+        let skill = self.get_by_slug(slug).await?;
+        self.skill_repo.list_tags(skill.id).await
+    }
+
+    /// 获取标签列表，包含版本号而非仅 version_id
+    pub async fn list_tags_with_version(&self, slug: &str) -> Result<Vec<SkillTagResponse>> {
+        let skill = self.get_by_slug(slug).await?;
+        self.skill_repo.list_tags_with_version(skill.id).await
+    }
+
+    pub async fn create_tag(&self, author_id: Uuid, slug: &str, payload: CreateSkillTag) -> Result<SkillTag> {
+        let skill = self.get_by_slug(slug).await?;
+
+        if skill.author_id != Some(author_id) {
+            return Err(anyhow!("无权为此技能创建标签"));
+        }
+
+        // 查找版本
+        let version = self.skill_repo
+            .find_version(skill.id, &payload.version)
+            .await?
+            .ok_or_else(|| anyhow!("版本 {} 不存在", payload.version))?;
+
+        // 创建或更新标签
+        let tag = self.skill_repo.create_tag(skill.id, &payload.tag, version.id, author_id).await?;
+
+        Ok(tag)
+    }
+
+    pub async fn delete_tag(&self, author_id: Uuid, slug: &str, tag: &str) -> Result<()> {
+        let skill = self.get_by_slug(slug).await?;
+
+        if skill.author_id != Some(author_id) {
+            return Err(anyhow!("无权删除此技能的标签"));
+        }
+
+        // 不允许删除 latest 标签
+        if tag == "latest" {
+            return Err(anyhow!("不能删除 latest 标签"));
+        }
+
+        self.skill_repo.delete_tag(skill.id, tag).await
+    }
+
+    pub async fn get_manifest(&self, slug: &str) -> Result<SkillManifest> {
+        let skill = self.get_by_slug(slug).await?;
+
+        self.skill_repo
+            .get_manifest(skill.id)
+            .await?
+            .ok_or_else(|| anyhow!("无法获取技能清单"))
+    }
+}
+
+fn is_valid_slug(slug: &str) -> bool {
+    !slug.is_empty() && slug.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+}
+
+fn is_valid_version(version: &str) -> bool {
+    // 支持语义版本：v1.0.0, v1.0.0-beta.1 等
+    let version_regex = regex::Regex::new(r"^v\d+\.\d+\.\d+(-[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*)?$").unwrap();
+    version_regex.is_match(version)
+}
