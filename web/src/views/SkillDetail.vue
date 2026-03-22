@@ -20,8 +20,8 @@ const error = ref('')
 const defaultTag = computed(() => {
   if (tags.value.length > 0) {
     // 优先选择 latest 或第一个标签
-    const latest = tags.value.find(t => t.name === 'latest')
-    return latest ? latest.name : tags.value[0].name
+    const latest = tags.value.find(t => t.tag === 'latest')
+    return latest ? latest.tag : tags.value[0].tag
   }
   return ''
 })
@@ -189,7 +189,7 @@ onMounted(() => {
         </div>
 
         <!-- 描述 -->
-        <p class="text-gray-600 mb-6">{{ skill.description }}</p>
+        <p class="text-gray-600 mb-6">{{ skill.description || '暂无描述' }}</p>
 
         <!-- 版本选择（Docker Tag 模式） -->
         <div class="border-t border-gray-200 pt-6 mb-6">
@@ -214,8 +214,8 @@ onMounted(() => {
                 @change="handleTagChange"
                 class="flex-1 max-w-xs px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
               >
-                <option v-for="tag in tags" :key="tag.name" :value="tag.name">
-                  {{ tag.name }}
+                <option v-for="tag in tags" :key="tag.id" :value="tag.tag">
+                  {{ tag.tag }} (v{{ tag.version }})
                 </option>
               </select>
             </div>
@@ -229,35 +229,31 @@ onMounted(() => {
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <span class="text-gray-500">版本标签:</span>
-                  <span class="ml-2 font-medium">{{ versionDetail.tag }}</span>
+                  <span class="ml-2 font-medium">{{ selectedTag }}</span>
                 </div>
                 <div>
-                  <span class="text-gray-500">Digest:</span>
-                  <span class="ml-2 font-mono text-xs">{{ versionDetail.manifest?.slice(0, 12) }}...</span>
+                  <span class="text-gray-500">版本:</span>
+                  <span class="ml-2 font-medium">v{{ versionDetail.version_info?.version }}</span>
                 </div>
               </div>
 
-              <!-- 文件列表 -->
-              <div v-if="versionDetail.files && versionDetail.files.length > 0" class="mt-4">
-                <span class="text-gray-500">文件列表:</span>
-                <ul class="mt-2 space-y-1">
-                  <li
-                    v-for="file in versionDetail.files"
-                    :key="file.name"
-                    class="flex justify-between items-center py-1 px-2 bg-white rounded"
-                  >
-                    <span class="font-mono text-xs">{{ file.name }}</span>
-                    <span class="text-gray-400 text-xs">{{ formatSize(file.size) }}</span>
-                  </li>
-                </ul>
+              <div v-if="versionDetail.version_info?.digest" class="mt-2">
+                <span class="text-gray-500">Digest:</span>
+                <span class="ml-2 font-mono text-xs">{{ versionDetail.version_info.digest?.slice(0, 12) }}...</span>
+              </div>
+
+              <!-- 内容预览 -->
+              <div v-if="versionDetail.content" class="mt-4">
+                <span class="text-gray-500">内容预览:</span>
+                <pre class="mt-2 p-2 bg-white rounded text-xs overflow-x-auto max-h-32">{{ versionDetail.content?.slice(0, 500) }}{{ versionDetail.content && versionDetail.content.length > 500 ? '...' : '' }}</pre>
               </div>
             </div>
 
             <!-- 标签创建时间 -->
             <div v-if="selectedTag" class="text-sm text-gray-500">
-              <template v-for="tag in tags" :key="tag.name">
-                <span v-if="tag.name === selectedTag">
-                  创建时间: {{ formatDate(tag.created_at) }}
+              <template v-for="tag in tags" :key="tag.id">
+                <span v-if="tag.tag === selectedTag">
+                  更新时间: {{ formatDate(tag.updated_at) }}
                 </span>
               </template>
             </div>

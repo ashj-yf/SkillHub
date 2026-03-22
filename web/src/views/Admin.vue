@@ -33,7 +33,7 @@ async function handleDelete(skill: Skill) {
 
   deleting.value = skill.id
   try {
-    await deleteSkill(skill.id)
+    await deleteSkill(skill.slug)
     mySkills.value = mySkills.value.filter(s => s.id !== skill.id)
   } catch (e) {
     alert(extractErrorMessage(e, '删除失败'))

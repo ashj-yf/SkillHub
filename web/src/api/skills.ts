@@ -4,26 +4,53 @@ export interface Skill {
   id: string
   name: string
   slug: string
-  description: string
-  readme: string
+  description?: string
+  readme?: string
+  author_id?: string
   version: string
   tags: string[]
+  is_public: boolean
   download_count: number
-  created_at?: string
-  updated_at?: string
+  created_at: string
+  updated_at: string
 }
 
 export interface SkillTag {
-  name: string
-  digest: string
+  id: string
+  skill_id: string
+  tag: string
+  version: string
+  updated_at: string
+  updated_by: string | null
+}
+
+export interface SkillVersion {
+  id: string
+  skill_id: string
+  version: string
+  storage_path: string
+  content?: string
+  changelog?: string
+  digest?: string
   created_at: string
+  created_by?: string
 }
 
 export interface SkillDetailByVersion {
+  id: string
+  name: string
   slug: string
-  tag: string
-  manifest: string
-  files: SkillFile[]
+  description?: string
+  readme?: string
+  author_id?: string
+  version: string
+  tags: string[]
+  is_public: boolean
+  download_count: number
+  created_at: string
+  updated_at: string
+  content?: string
+  version_info: SkillVersion
 }
 
 export interface SkillFile {
@@ -85,6 +112,11 @@ export async function getSkillByVersion(slug: string, tag: string): Promise<Skil
   return data
 }
 
+export async function getSkillVersions(slug: string): Promise<SkillVersion[]> {
+  const { data } = await api.get<SkillVersion[]>(`/skills/${slug}/versions`)
+  return data
+}
+
 export async function getSkillTags(slug: string): Promise<SkillTag[]> {
   const { data } = await api.get<SkillTag[]>(`/skills/${slug}/tags`)
   return data
@@ -101,13 +133,13 @@ export async function createSkill(skill: CreateSkillRequest): Promise<Skill> {
   return data
 }
 
-export async function updateSkill(id: string, skill: UpdateSkillRequest): Promise<Skill> {
-  const { data } = await api.put<Skill>(`/skills/${id}`, skill)
+export async function updateSkill(slug: string, skill: UpdateSkillRequest): Promise<Skill> {
+  const { data } = await api.put<Skill>(`/skills/${slug}`, skill)
   return data
 }
 
-export async function deleteSkill(id: string): Promise<void> {
-  await api.delete(`/skills/${id}`)
+export async function deleteSkill(slug: string): Promise<void> {
+  await api.delete(`/skills/${slug}`)
 }
 
 // 获取当前用户创建的技能
