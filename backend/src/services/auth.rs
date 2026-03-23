@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use bcrypt::{hash, verify, DEFAULT_COST};
 use sqlx::PgPool;
+use tracing::{info, warn};
 
 use crate::models::user::{CreateUser, LoginRequest, User};
 use crate::repos::user::UserRepo;
@@ -24,11 +25,13 @@ impl AuthService {
     pub async fn register(&self, payload: CreateUser) -> Result<User> {
         // 检查邮箱是否已存在
         if self.user_repo.find_by_email(&payload.email).await?.is_some() {
+            warn!(email = %payload.email, "Registration failed: email already registered");
             return Err(anyhow!("邮箱已被注册"));
         }
 
         // 检查用户名是否已存在
         if self.user_repo.find_by_username(&payload.username).await?.is_some() {
+            warn!(username = %payload.username, "Registration failed: username already taken");
             return Err(anyhow!("用户名已被使用"));
         }
 
@@ -43,6 +46,8 @@ impl AuthService {
         // 创建用户
         let user = self.user_repo.create(&payload, &password_hash).await?;
 
+        info!(user_id = %user.id, username = %user.username, "User registered successfully");
+
         Ok(user)
     }
 
@@ -51,16 +56,21 @@ impl AuthService {
         let user = self.user_repo
             .find_by_email(&request.email)
             .await?
-            .ok_or_else(|| anyhow!("邮箱或密码错误"))?;
+            .ok_or_else(|| {
+                warn!(email = %request.email, "Login failed: user not found");
+                anyhow!("邮箱或密码错误")
+            })?;
 
         // 检查用户是否激活
         if !user.is_active {
+            warn!(user_id = %user.id, "Login failed: account disabled");
             return Err(anyhow!("账户已被禁用"));
         }
 
         // 验证密码
         let valid = verify_password(&request.password, &user.password_hash)?;
         if !valid {
+            warn!(user_id = %user.id, "Login failed: invalid password");
             return Err(anyhow!("邮箱或密码错误"));
         }
 
@@ -74,6 +84,8 @@ impl AuthService {
             &self.jwt_secret,
             self.jwt_expiration_hours,
         )?;
+
+        info!(user_id = %user.id, username = %user.username, role = %user.role, "User logged in successfully");
 
         Ok(token)
     }

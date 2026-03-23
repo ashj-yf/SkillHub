@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use aws_config::BehaviorVersion;
 use aws_sdk_s3::primitives::ByteStream;
+use tracing::{error, info};
 use uuid::Uuid;
 
 /// S3-compatible storage client (RustFS/MinIO/AWS S3)
@@ -57,12 +58,14 @@ impl Storage {
             .await;
 
         if bucket_exists.is_err() {
+            info!(bucket = %self.bucket, "Bucket not found, creating...");
             self.client
                 .create_bucket()
                 .bucket(&self.bucket)
                 .send()
                 .await
                 .context("Failed to create bucket")?;
+            info!(bucket = %self.bucket, "Bucket created successfully");
         }
 
         Ok(())
@@ -90,6 +93,10 @@ impl Storage {
             .content_type("text/plain")
             .send()
             .await
+            .map_err(|e| {
+                error!(skill_id = %skill_id, version = %version, bucket = %self.bucket, error = ?e, "Failed to upload skill content");
+                e
+            })
             .context("Failed to upload skill content to storage")?;
 
         Ok(key)
@@ -129,6 +136,7 @@ impl Storage {
                         return Ok(None);
                     }
                 }
+                error!(skill_id = %skill_id, version = %version, bucket = %self.bucket, error = ?e, "Failed to download skill content");
                 Err(e).context("Failed to download skill content from storage")
             }
         }

@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use sha2::{Digest, Sha256};
 use sqlx::PgPool;
+use tracing::{info, warn};
 use uuid::Uuid;
 
 use crate::models::skill::{CreateSkill, CreateSkillTag, CreateSkillVersion, Skill, SkillTag, SkillTagResponse, SkillVersion, SkillManifest, UpdateSkill};
@@ -61,15 +62,21 @@ impl SkillService {
     pub async fn create(&self, author_id: Uuid, payload: CreateSkill) -> Result<Skill> {
         // 验证 slug 格式
         if !is_valid_slug(&payload.slug) {
+            warn!(slug = %payload.slug, author_id = %author_id, "Skill creation failed: invalid slug format");
             return Err(anyhow!("Slug 只能包含小写字母、数字和连字符"));
         }
 
         // 检查 slug 是否已存在
         if self.skill_repo.find_by_slug(&payload.slug).await?.is_some() {
+            warn!(slug = %payload.slug, author_id = %author_id, "Skill creation failed: slug already exists");
             return Err(anyhow!("Slug 已被使用"));
         }
 
-        self.skill_repo.create(author_id, &payload).await
+        let skill = self.skill_repo.create(author_id, &payload).await?;
+
+        info!(skill_id = %skill.id, slug = %skill.slug, author_id = %author_id, "Skill created successfully");
+
+        Ok(skill)
     }
 
     pub async fn update(&self, author_id: Uuid, skill_id: Uuid, payload: UpdateSkill) -> Result<Skill> {
@@ -80,10 +87,15 @@ impl SkillService {
             .ok_or_else(|| anyhow!("技能不存在"))?;
 
         if skill.author_id != Some(author_id) {
+            warn!(skill_id = %skill_id, author_id = %author_id, actual_author = ?skill.author_id, "Skill update denied: not owner");
             return Err(anyhow!("无权修改此技能"));
         }
 
-        self.skill_repo.update(skill_id, &payload).await
+        let updated = self.skill_repo.update(skill_id, &payload).await?;
+
+        info!(skill_id = %skill_id, author_id = %author_id, "Skill updated successfully");
+
+        Ok(updated)
     }
 
     /// 通过 slug 更新技能
@@ -95,10 +107,15 @@ impl SkillService {
             .ok_or_else(|| anyhow!("技能不存在"))?;
 
         if skill.author_id != Some(author_id) {
+            warn!(slug = %slug, author_id = %author_id, actual_author = ?skill.author_id, "Skill update denied: not owner");
             return Err(anyhow!("无权修改此技能"));
         }
 
-        self.skill_repo.update(skill.id, &payload).await
+        let updated = self.skill_repo.update(skill.id, &payload).await?;
+
+        info!(skill_id = %skill.id, slug = %slug, author_id = %author_id, "Skill updated successfully");
+
+        Ok(updated)
     }
 
     pub async fn delete(&self, author_id: Uuid, skill_id: Uuid) -> Result<()> {
@@ -109,10 +126,15 @@ impl SkillService {
             .ok_or_else(|| anyhow!("技能不存在"))?;
 
         if skill.author_id != Some(author_id) {
+            warn!(skill_id = %skill_id, author_id = %author_id, actual_author = ?skill.author_id, "Skill deletion denied: not owner");
             return Err(anyhow!("无权删除此技能"));
         }
 
-        self.skill_repo.delete(skill_id).await
+        self.skill_repo.delete(skill_id).await?;
+
+        info!(skill_id = %skill_id, author_id = %author_id, "Skill deleted successfully");
+
+        Ok(())
     }
 
     /// 通过 slug 删除技能
@@ -124,10 +146,15 @@ impl SkillService {
             .ok_or_else(|| anyhow!("技能不存在"))?;
 
         if skill.author_id != Some(author_id) {
+            warn!(slug = %slug, author_id = %author_id, actual_author = ?skill.author_id, "Skill deletion denied: not owner");
             return Err(anyhow!("无权删除此技能"));
         }
 
-        self.skill_repo.delete(skill.id).await
+        self.skill_repo.delete(skill.id).await?;
+
+        info!(skill_id = %skill.id, slug = %slug, author_id = %author_id, "Skill deleted successfully");
+
+        Ok(())
     }
 
     pub async fn increment_download(&self, skill_id: Uuid) -> Result<()> {
@@ -144,16 +171,19 @@ impl SkillService {
         let skill = self.get_by_slug(slug).await?;
 
         if skill.author_id != Some(author_id) {
+            warn!(slug = %slug, skill_id = %skill.id, author_id = %author_id, "Version creation denied: not owner");
             return Err(anyhow!("无权为此技能创建版本"));
         }
 
         // 验证版本号格式
         if !is_valid_version(&payload.version) {
+            warn!(version = %payload.version, slug = %slug, "Version creation failed: invalid version format");
             return Err(anyhow!("版本号格式无效，应为 v1.0.0 格式"));
         }
 
         // 检查版本是否已存在
         if self.skill_repo.find_version(skill.id, &payload.version).await?.is_some() {
+            warn!(skill_id = %skill.id, version = %payload.version, "Version creation failed: version already exists");
             return Err(anyhow!("版本 {} 已存在", payload.version));
         }
 
@@ -170,9 +200,12 @@ impl SkillService {
             let path = self.storage
                 .upload_skill_content(skill.id, &payload.version, &payload.content)
                 .await?;
-            tracing::info!(
-                "Stored skill {} version {} in object storage ({} bytes)",
-                skill.id, payload.version, content_len
+            info!(
+                skill_id = %skill.id,
+                version = %payload.version,
+                content_size = content_len,
+                storage_path = %path,
+                "Version content stored in object storage"
             );
             (None, path)
         } else {
@@ -199,6 +232,14 @@ impl SkillService {
             self.skill_repo.create_tag(skill.id, "latest", version.id, author_id).await?;
         }
 
+        info!(
+            skill_id = %skill.id,
+            slug = %slug,
+            version = %version.version,
+            author_id = %author_id,
+            "Skill version created successfully"
+        );
+
         Ok(version)
     }
 
@@ -224,6 +265,7 @@ impl SkillService {
         let skill = self.get_by_slug(slug).await?;
 
         if skill.author_id != Some(author_id) {
+            warn!(slug = %slug, skill_id = %skill.id, author_id = %author_id, "Tag creation denied: not owner");
             return Err(anyhow!("无权为此技能创建标签"));
         }
 
@@ -231,10 +273,22 @@ impl SkillService {
         let version = self.skill_repo
             .find_version(skill.id, &payload.version)
             .await?
-            .ok_or_else(|| anyhow!("版本 {} 不存在", payload.version))?;
+            .ok_or_else(|| {
+                warn!(skill_id = %skill.id, version = %payload.version, "Tag creation failed: version not found");
+                anyhow!("版本 {} 不存在", payload.version)
+            })?;
 
         // 创建或更新标签
         let tag = self.skill_repo.create_tag(skill.id, &payload.tag, version.id, author_id).await?;
+
+        info!(
+            skill_id = %skill.id,
+            slug = %slug,
+            tag = %tag.tag,
+            version = %payload.version,
+            author_id = %author_id,
+            "Skill tag created successfully"
+        );
 
         Ok(tag)
     }
@@ -243,15 +297,21 @@ impl SkillService {
         let skill = self.get_by_slug(slug).await?;
 
         if skill.author_id != Some(author_id) {
+            warn!(slug = %slug, skill_id = %skill.id, tag = %tag, author_id = %author_id, "Tag deletion denied: not owner");
             return Err(anyhow!("无权删除此技能的标签"));
         }
 
         // 不允许删除 latest 标签
         if tag == "latest" {
+            warn!(skill_id = %skill.id, "Tag deletion failed: cannot delete 'latest' tag");
             return Err(anyhow!("不能删除 latest 标签"));
         }
 
-        self.skill_repo.delete_tag(skill.id, tag).await
+        self.skill_repo.delete_tag(skill.id, tag).await?;
+
+        info!(skill_id = %skill.id, slug = %slug, tag = %tag, author_id = %author_id, "Skill tag deleted successfully");
+
+        Ok(())
     }
 
     pub async fn get_manifest(&self, slug: &str) -> Result<SkillManifest> {

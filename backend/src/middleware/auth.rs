@@ -4,6 +4,7 @@ use axum::{
     http::request::Parts,
 };
 use serde::{Deserialize, Serialize};
+use tracing::warn;
 use uuid::Uuid;
 
 use crate::state::AppState;
@@ -38,23 +39,33 @@ impl FromRequestParts<AppState> for AuthUser {
 
         let auth_header = match auth_header {
             Some(h) => h,
-            None => return Err(ApiError::Unauthorized),
+            None => {
+                warn!("Authentication failed: missing Authorization header");
+                return Err(ApiError::Unauthorized);
+            }
         };
 
         // 验证 Bearer token 格式
         let token = if auth_header.starts_with("Bearer ") {
             &auth_header[7..]
         } else {
+            warn!("Authentication failed: invalid Authorization header format");
             return Err(ApiError::Unauthorized);
         };
 
         // 验证 JWT
         let claims = jwt::verify_token(token, jwt_secret)
-            .map_err(|_| ApiError::Unauthorized)?;
+            .map_err(|_| {
+                warn!("Authentication failed: invalid or expired token");
+                ApiError::Unauthorized
+            })?;
 
         // 解析用户 ID
         let user_id = Uuid::parse_str(&claims.sub)
-            .map_err(|_| ApiError::Unauthorized)?;
+            .map_err(|_| {
+                warn!(sub = %claims.sub, "Authentication failed: invalid user ID in token");
+                ApiError::Unauthorized
+            })?;
 
         Ok(AuthUser(CurrentUser {
             id: user_id,
