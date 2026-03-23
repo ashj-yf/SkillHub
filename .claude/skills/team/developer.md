@@ -23,16 +23,16 @@ name: 部署专员
 SSH 别名: cloud-server
 IP: 115.190.114.160
 用户: root
-项目路径: ~/projects/skills_hub/
+项目路径: /root/projects/skills_hub/（绝对路径）
 ```
 
-## 常用命令
+## ⭐ 代码同步规则
 
-### 代码同步
+**必须全量同步**：每次同步时必须使用 `--delete` 参数，确保云端与本地完全一致。
 
 ```bash
-# 同步代码到云端（排除不需要的文件）
-rsync -avz --progress \
+# 全量同步代码到云端（删除云端多余文件）
+rsync -avz --delete --progress \
   --exclude '.git' \
   --exclude 'node_modules' \
   --exclude 'target' \
@@ -40,23 +40,36 @@ rsync -avz --progress \
   --exclude '.env' \
   --exclude '*.log' \
   --exclude 'docs/requirements' \
-  . cloud-server:~/projects/skills_hub/
+  --exclude '.claude' \
+  . cloud-server:/root/projects/skills_hub/
 ```
+
+**参数说明**：
+- `--delete`：删除云端存在但本地不存在的文件（全量同步关键参数）
+- `--exclude`：排除不需要同步的目录和文件
+
+**同步规则**：
+1. **全量覆盖**：本地文件覆盖云端同名文件
+2. **删除多余**：云端存在但本地不存在的文件会被删除
+3. **目录结构一致**：同步后云端目录结构与本地项目完全一致
+4. **绝对路径**：使用 `/root/projects/skills_hub/` 绝对路径，避免路径错误
+
+**目的**：避免因增量同步导致云端残留旧文件（如旧的 Dockerfile、已删除的源文件），造成版本不一致和构建失败问题。
 
 ### 服务管理
 
 ```bash
 # 启动服务
-ssh cloud-server "cd ~/projects/skills_hub && docker-compose up -d"
+ssh cloud-server "cd /root/projects/skills_hub && docker compose up -d"
 
 # 停止服务
-ssh cloud-server "cd ~/projects/skills_hub && docker-compose down"
+ssh cloud-server "cd /root/projects/skills_hub && docker compose down"
 
 # 查看日志
-ssh cloud-server "cd ~/projects/skills_hub && docker-compose logs -f"
+ssh cloud-server "cd /root/projects/skills_hub && docker compose logs -f"
 
 # 重启服务
-ssh cloud-server "cd ~/projects/skills_hub && docker-compose restart"
+ssh cloud-server "cd /root/projects/skills_hub && docker compose restart"
 ```
 
 ### 环境配置

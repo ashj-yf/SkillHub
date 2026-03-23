@@ -28,15 +28,15 @@ impl PermissionService {
         resource: &str,
         action: &str,
     ) -> Result<bool> {
-        let permission_name = permission_name(resource, action);
-        debug!(user_id = %user_id, permission = %permission_name, "Checking permission");
+        let perm_name = permission_name(resource, action);
+        debug!(user_id = %user_id, permission = %perm_name, "Checking permission");
 
-        let has_permission = self.role_repo.user_has_permission(user_id, &permission_name).await?;
+        let has_permission = self.role_repo.user_has_permission(user_id, &perm_name).await?;
 
         // 如果没有特定权限，检查是否有 manage 权限
         if !has_permission && action != "manage" {
-            let manage_permission = permission_name(resource, "manage");
-            let has_manage = self.role_repo.user_has_permission(user_id, &manage_permission).await?;
+            let manage_perm = permission_name(resource, "manage");
+            let has_manage = self.role_repo.user_has_permission(user_id, &manage_perm).await?;
 
             if has_manage {
                 debug!(user_id = %user_id, resource = %resource, "User has manage permission");
@@ -45,9 +45,9 @@ impl PermissionService {
         }
 
         if has_permission {
-            debug!(user_id = %user_id, permission = %permission_name, "Permission granted");
+            debug!(user_id = %user_id, permission = %perm_name, "Permission granted");
         } else {
-            warn!(user_id = %user_id, permission = %permission_name, "Permission denied");
+            warn!(user_id = %user_id, permission = %perm_name, "Permission denied");
         }
 
         Ok(has_permission)

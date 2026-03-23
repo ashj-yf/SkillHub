@@ -164,7 +164,7 @@ pub async fn get_group_members(
     Path(id): Path<Uuid>,
 ) -> Result<Json<Vec<GroupMember>>, ApiError> {
     let group_repo = GroupRepo::new(state.db.clone());
-    let user_repo = UserRepo::new(state.db);
+    let user_repo = UserRepo::new(state.db.clone());
 
     // 检查组是否存在
     if group_repo.find_by_id(id).await?.is_none() {

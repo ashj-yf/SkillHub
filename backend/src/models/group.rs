@@ -22,6 +22,7 @@ pub struct CreateGroup {
     pub name: String,
     pub description: Option<String>,
     pub parent_id: Option<Uuid>,
+    pub created_by: Option<Uuid>,
 }
 
 /// 更新用户组请求
