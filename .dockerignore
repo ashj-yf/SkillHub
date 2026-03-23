@@ -1,0 +1,40 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Local config
+.env
+.env.*
+*.local
+
+# Node modules (will be installed in container)
+**/node_modules
+
+# Build artifacts
+**/target
+**/dist
+
+# Test coverage
+**/coverage
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose*.yml
+.docker/
+
+# Claude
+.claude/
