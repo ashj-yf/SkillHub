@@ -11,7 +11,7 @@ pub struct User {
     #[serde(skip_serializing)]
     pub password_hash: String,
     pub role: String,
-    pub department_id: Option<Uuid>,
+    pub group_id: Option<Uuid>,
     pub is_active: bool,
     pub last_login_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
