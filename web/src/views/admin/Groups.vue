@@ -4,7 +4,7 @@
  *
  * Department/group management page with tree view, CRUD, and member management
  */
-import { ref, onMounted, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import {
   listGroups,
   createGroup,
@@ -193,10 +193,10 @@ async function handleRemoveMember(member: GroupMember) {
   }
 }
 
-// Render tree recursively
-function renderTree(groups: (Group & { children: Group[] })[], depth = 0): void {
-  // This is used in the template
-}
+// Initialize
+onMounted(() => {
+  loadData()
+})
 </script>
 
 <template>

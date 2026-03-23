@@ -73,7 +73,7 @@ async function handleRegister() {
         type="text"
         placeholder="Choose a username"
         required
-        maxlength="50"
+        :maxlength="50"
         :state="error && (!username || username.length > 50) ? 'error' : 'default'"
       />
 

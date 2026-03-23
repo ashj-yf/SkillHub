@@ -1,27 +1,17 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { listMySkills, deleteSkill, type Skill } from '@/api/skills'
 import { extractErrorMessage } from '@/api/index'
 import AppLayout from '@/design-system/layouts/AppLayout.vue'
 import Button from '@/design-system/elements/Button/Button.vue'
 
-const router = useRouter()
 const userStore = useUserStore()
 
 const mySkills = ref<Skill[]>([])
 const loading = ref(false)
 const deleting = ref<string | null>(null)
 const error = ref('')
-
-// Navigation items for admin sidebar
-const adminNavItems = [
-  { name: 'Overview', path: '/admin', icon: 'home' },
-  { name: 'Users', path: '/admin/users', icon: 'users' },
-  { name: 'Departments', path: '/admin/groups', icon: 'groups' },
-  { name: 'Roles', path: '/admin/roles', icon: 'roles' },
-]
 
 async function loadMySkills() {
   loading.value = true

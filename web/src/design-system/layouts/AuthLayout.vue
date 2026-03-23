@@ -20,7 +20,7 @@ interface Props {
   backgroundImg?: string
 }
 
-const props = withDefaults(defineProps<Props>(), {
+withDefaults(defineProps<Props>(), {
   title: 'Skills Intelligence Hub',
   subtitle: '让技能主动找到你',
   showLogo: true,

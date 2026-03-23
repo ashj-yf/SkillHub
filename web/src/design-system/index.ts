@@ -38,37 +38,20 @@ export type {
   // Breakpoints
   Breakpoint,
   ResponsiveValue,
-  // Button
-  ButtonType,
-  ButtonSize,
-  ButtonState,
-  ButtonShape,
+} from './tokens'
+
+// 组件类型从 elements 导出
+export type {
   ButtonProps,
   ButtonEmits,
-  // Input
-  InputSize,
-  InputState,
-  InputProps,
-  InputEmits,
-  // Tag
-  TagType,
-  TagSize,
-  TagVariant,
-  SkillTagType,
-  TagProps,
-  TagEmits,
-} from './tokens'
-export type {
-  ButtonProps as UIButtonProps,
-  ButtonEmits as UIButtonEmits,
 } from './elements/Button'
 export type {
-  InputProps as UIInputProps,
-  InputEmits as UIInputEmits,
+  InputProps,
+  InputEmits,
 } from './elements/Input'
 export type {
-  TagProps as UITagProps,
-  TagEmits as UITagEmits,
+  TagProps,
+  TagEmits,
 } from './elements/Tag'
 
 // 设计系统完整对象

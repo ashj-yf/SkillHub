@@ -3,7 +3,7 @@
  */
 
 // 按钮类型
-export type ButtonType = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger'
+export type ButtonType = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'success'
 
 // 按钮尺寸
 export type ButtonSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl'
@@ -123,6 +123,12 @@ export const buttonTypeMap: Record<ButtonType, {
   },
   danger: {
     base: 'bg-semantic-error-dark text-white hover:opacity-90 active:opacity-80',
+    hover: 'opacity-90',
+    active: 'opacity-80',
+    disabled: 'bg-neutral-200 text-neutral-400 cursor-not-allowed',
+  },
+  success: {
+    base: 'bg-semantic-success-dark text-white hover:opacity-90 active:opacity-80',
     hover: 'opacity-90',
     active: 'opacity-80',
     disabled: 'bg-neutral-200 text-neutral-400 cursor-not-allowed',

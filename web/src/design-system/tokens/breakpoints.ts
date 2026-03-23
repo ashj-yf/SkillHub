@@ -5,16 +5,21 @@
  * 采用移动优先 (Mobile First) 策略
  */
 
-export const breakpoints = {
-  // ========================================
-  // 断点定义 (Breakpoints)
-  // 最小宽度断点
-  // ========================================
+// 基础断点值
+const breakpointValues = {
   sm: '640px',    // 小屏手机 (横屏)
   md: '768px',    // 平板
   lg: '1024px',   // 小屏笔记本
   xl: '1280px',   // 桌面显示器
   '2xl': '1536px', // 大屏显示器
+} as const
+
+export const breakpoints = {
+  // ========================================
+  // 断点定义 (Breakpoints)
+  // 最小宽度断点
+  // ========================================
+  ...breakpointValues,
 
   // ========================================
   // 设备类型断点 (Device Breakpoints)
@@ -53,48 +58,25 @@ export const breakpoints = {
     xl: '1280px',
     '2xl': '1536px',
   },
-
-  // ========================================
-  // 响应式工具 (Responsive Utilities)
-  // ========================================
-  utils: {
-    // 生成媒体查询字符串
-    minWidth(breakpoint: keyof typeof breakpoints): string {
-      return `(min-width: ${breakpoints[breakpoint]})`
-    },
-    maxWidth(breakpoint: keyof typeof breakpoints): string {
-      return `(max-width: ${breakpoints[breakpoint]})`
-    },
-    // 生成范围媒体查询
-    between(min: keyof typeof breakpoints, max: keyof typeof breakpoints): string {
-      return `(min-width: ${breakpoints[min]}) and (max-width: ${breakpoints[max]})`
-    },
-  },
 } as const
 
 // 断点类型
-export type Breakpoint = keyof typeof breakpoints
+export type Breakpoint = keyof typeof breakpointValues
 
 // CSS 变量转换
 export function breakpointsToCssVars(): Record<string, string> {
   return {
-    '--breakpoint-sm': breakpoints.sm,
-    '--breakpoint-md': breakpoints.md,
-    '--breakpoint-lg': breakpoints.lg,
-    '--breakpoint-xl': breakpoints.xl,
-    '--breakpoint-2xl': breakpoints['2xl'],
+    '--breakpoint-sm': breakpointValues.sm,
+    '--breakpoint-md': breakpointValues.md,
+    '--breakpoint-lg': breakpointValues.lg,
+    '--breakpoint-xl': breakpointValues.xl,
+    '--breakpoint-2xl': breakpointValues['2xl'],
   }
 }
 
 // Tailwind 配置转换
 export function breakpointsToTailwind(): Record<string, string> {
-  return {
-    sm: breakpoints.sm,
-    md: breakpoints.md,
-    lg: breakpoints.lg,
-    xl: breakpoints.xl,
-    '2xl': breakpoints['2xl'],
-  }
+  return { ...breakpointValues }
 }
 
 // 响应式对象类型

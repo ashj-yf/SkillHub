@@ -90,7 +90,9 @@ describe('Groups API', () => {
 
       const mockCreatedGroup: Group = {
         id: '3',
-        ...newGroup,
+        name: newGroup.name,
+        description: newGroup.description,
+        parent_id: newGroup.parent_id ?? null,
         created_at: '2024-01-02T00:00:00Z',
         updated_at: '2024-01-02T00:00:00Z',
       }
