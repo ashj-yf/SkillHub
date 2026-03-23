@@ -57,7 +57,8 @@ services:
       JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
       SERVER_HOST: 0.0.0.0
       SERVER_PORT: 3000
-      RUST_LOG: info
+      RUST_LOG: ${RUST_LOG:-info}
+      LOG_FORMAT: ${LOG_FORMAT:-pretty}
       STORAGE_ENDPOINT: http://rustfs:9000
       STORAGE_ACCESS_KEY: skillhub
       STORAGE_SECRET_KEY: skillhub123

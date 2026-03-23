@@ -107,6 +107,11 @@ coverage/
 # Subtree directory with its own repository
 docs/
 
+# But allow backend docs
+!backend/docs/
+
 # Claude configuration (personal preferences)
-.claude/
+.claude/settings.json
+.claude/settings.local.json
+.claude/memory/
 CLAUDE.md
