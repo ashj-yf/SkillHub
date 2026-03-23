@@ -1,5 +1,5 @@
 # ====================
-# Skills Hub 合并镜像 Dockerfile
+# Skills Hub 合并镜像 Dockerfile (国内加速版)
 # 前端 + 后端 + nginx 统一打包
 # ====================
 
@@ -7,6 +7,12 @@
 # 阶段 1: 前端构建
 # ====================
 FROM node:20-alpine AS frontend-builder
+
+# 配置 Alpine 阿里云镜像
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
+
+# 配置 npm 淘宝镜像
+RUN npm config set registry https://registry.npmmirror.com
 
 WORKDIR /app/web
 
@@ -27,9 +33,20 @@ RUN npm run build
 # ====================
 FROM rust:1.94-alpine AS backend-builder
 
+# 配置 Alpine 阿里云镜像
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
+
 RUN apk add --no-cache musl-dev
 
 WORKDIR /app
+
+# 配置 Rust crates 清华镜像
+RUN mkdir -p /root/.cargo && \
+    echo '[source.crates-io]' > /root/.cargo/config.toml && \
+    echo 'replace-with = "tuna"' >> /root/.cargo/config.toml && \
+    echo '' >> /root/.cargo/config.toml && \
+    echo '[source.tuna]' >> /root/.cargo/config.toml && \
+    echo 'registry = "https://mirrors.tuna.tsinghua.edu.cn/git/crates.io-index.git"' >> /root/.cargo/config.toml
 
 # 复制依赖文件
 COPY backend/Cargo.toml ./
@@ -50,6 +67,9 @@ RUN touch src/main.rs && cargo build
 # 阶段 3: 运行镜像
 # ====================
 FROM alpine:3.19
+
+# 配置 Alpine 阿里云镜像
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 
 # 安装运行时依赖
 RUN apk add --no-cache ca-certificates tzdata nginx
