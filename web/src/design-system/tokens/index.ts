@@ -27,7 +27,7 @@ import colors from './colors'
 import typography from './typography'
 import spacing from './spacing'
 import shadows from './shadows'
-import breakpoints from './breakpoints'
+import breakpoints, { breakpointsToCssVars, breakpointsToTailwind } from './breakpoints'
 
 export const tokens = {
   colors,
