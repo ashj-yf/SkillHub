@@ -3,6 +3,13 @@
  * Skills Intelligence Hub - Users Admin Page
  *
  * User management page with list, role assignment, and enable/disable functionality
+ *
+ * NOTE: This page requires backend endpoints that are not yet implemented:
+ * - GET /users (list all users)
+ * - PUT /users/{id} (update user)
+ * - DELETE /users/{id} (delete user)
+ *
+ * The role assignment endpoints exist but require role UUID instead of role name.
  */
 import { ref, onMounted, computed } from 'vue'
 import { listRoles, type Role } from '@/api/roles'
@@ -26,8 +33,26 @@ const error = ref('')
 const searchQuery = ref('')
 const selectedUser = ref<User | null>(null)
 const isRoleModalOpen = ref(false)
-const selectedRole = ref('')
+const selectedRoleId = ref('')
 const operationLoading = ref(false)
+
+// Map role names to role IDs for API calls
+const roleNameToId = computed(() => {
+  const map = new Map<string, string>()
+  for (const role of roles.value) {
+    map.set(role.name, role.id)
+  }
+  return map
+})
+
+// Map role IDs to role names for display
+const roleIdToName = computed(() => {
+  const map = new Map<string, string>()
+  for (const role of roles.value) {
+    map.set(role.id, role.name)
+  }
+  return map
+})
 
 // Computed
 const filteredUsers = computed(() => {
@@ -49,7 +74,7 @@ async function loadData() {
     users.value = usersData
     roles.value = rolesData
   } catch (e) {
-    error.value = extractErrorMessage(e, 'Failed to load data')
+    error.value = extractErrorMessage(e, 'Failed to load data. Note: User management endpoints may not be implemented yet.')
   } finally {
     loading.value = false
   }
@@ -75,19 +100,23 @@ function openRoleModal(user: User) {
 function closeRoleModal() {
   selectedUser.value = null
   isRoleModalOpen.value = false
-  selectedRole.value = ''
+  selectedRoleId.value = ''
 }
 
 async function handleAssignRole() {
-  if (!selectedUser.value || !selectedRole.value) return
+  if (!selectedUser.value || !selectedRoleId.value) return
 
   operationLoading.value = true
   try {
-    await assignRole(selectedUser.value.id, selectedRole.value)
-    // Update local state
-    const index = users.value.findIndex((u) => u.id === selectedUser.value!.id)
-    if (index !== -1 && !users.value[index].roles.includes(selectedRole.value)) {
-      users.value[index].roles.push(selectedRole.value)
+    // API expects role UUID, not name
+    await assignRole(selectedUser.value.id, selectedRoleId.value)
+    // Get role name for local state update
+    const roleName = roleIdToName.value.get(selectedRoleId.value)
+    if (roleName) {
+      const index = users.value.findIndex((u) => u.id === selectedUser.value!.id)
+      if (index !== -1 && !users.value[index].roles.includes(roleName)) {
+        users.value[index].roles.push(roleName)
+      }
     }
     closeRoleModal()
   } catch (e) {
@@ -97,12 +126,20 @@ async function handleAssignRole() {
   }
 }
 
-async function handleRemoveRole(user: User, role: string) {
+async function handleRemoveRole(user: User, roleName: string) {
+  // Get role ID from name
+  const roleId = roleNameToId.value.get(roleName)
+  if (!roleId) {
+    error.value = `Cannot find role ID for "${roleName}"`
+    return
+  }
+
   try {
-    await removeRole(user.id, role)
+    // API expects role UUID, not name
+    await removeRole(user.id, roleId)
     const index = users.value.findIndex((u) => u.id === user.id)
     if (index !== -1) {
-      users.value[index].roles = users.value[index].roles.filter((r) => r !== role)
+      users.value[index].roles = users.value[index].roles.filter((r) => r !== roleName)
     }
   } catch (e) {
     error.value = extractErrorMessage(e, 'Failed to remove role')
@@ -281,15 +318,15 @@ onMounted(() => {
             :key="role.id"
             :class="[
               'flex items-center p-3 border rounded-lg cursor-pointer transition-colors',
-              selectedRole === role.name
+              selectedRoleId === role.id
                 ? 'border-brand-500 bg-brand-50'
                 : 'border-neutral-200 hover:border-neutral-300',
             ]"
           >
             <input
               type="radio"
-              :value="role.name"
-              v-model="selectedRole"
+              :value="role.id"
+              v-model="selectedRoleId"
               class="sr-only"
             />
             <div class="flex-1">
@@ -302,7 +339,7 @@ onMounted(() => {
         <div class="flex justify-end gap-3">
           <Button type="secondary" @click="closeRoleModal">Cancel</Button>
           <Button
-            :disabled="!selectedRole || operationLoading"
+            :disabled="!selectedRoleId || operationLoading"
             :loading="operationLoading"
             @click="handleAssignRole"
           >

@@ -9,12 +9,15 @@ export interface Group {
   updated_at: string
 }
 
+/**
+ * Group member response from backend
+ * Note: Backend returns 'id' for user_id and 'is_primary' instead of 'role'
+ */
 export interface GroupMember {
-  user_id: string
+  id: string // user's UUID
   username: string
   email: string
-  role: 'admin' | 'member'
-  joined_at: string
+  is_primary: boolean // true = primary group, false = secondary group
 }
 
 export interface CreateGroupRequest {
@@ -29,9 +32,13 @@ export interface UpdateGroupRequest {
   parent_id?: string | null
 }
 
+/**
+ * Request to add a member to a group
+ * Note: Backend expects 'is_primary' (boolean) instead of 'role'
+ */
 export interface AddMemberRequest {
   user_id: string
-  role?: 'admin' | 'member'
+  is_primary?: boolean // true = primary group membership
 }
 
 export async function listGroups(): Promise<Group[]> {

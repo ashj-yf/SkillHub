@@ -3,6 +3,10 @@
  * Skills Intelligence Hub - Groups Admin Page
  *
  * Department/group management page with tree view, CRUD, and member management
+ *
+ * NOTE: This page requires GET /users endpoint for listing users to add as members.
+ * If that endpoint is not available, the "Add Member" feature will show an error.
+ * The member role is mapped to 'is_primary' boolean (admin=true, member=false).
  */
 import { ref, computed, onMounted } from 'vue'
 import {
@@ -70,7 +74,7 @@ async function loadData() {
     groups.value = groupsData
     users.value = usersData
   } catch (e) {
-    error.value = extractErrorMessage(e, 'Failed to load data')
+    error.value = extractErrorMessage(e, 'Failed to load data. Note: Some endpoints may not be implemented yet.')
   } finally {
     loading.value = false
   }
@@ -171,7 +175,7 @@ async function handleAddMember() {
   try {
     await addGroupMember(selectedGroup.value.id, {
       user_id: selectedMemberId.value,
-      role: selectedMemberRole.value,
+      is_primary: selectedMemberRole.value === 'admin',
     })
     members.value = await getGroupMembers(selectedGroup.value.id)
     closeModals()
@@ -186,8 +190,8 @@ async function handleRemoveMember(member: GroupMember) {
   if (!selectedGroup.value) return
 
   try {
-    await removeGroupMember(selectedGroup.value.id, member.user_id)
-    members.value = members.value.filter((m) => m.user_id !== member.user_id)
+    await removeGroupMember(selectedGroup.value.id, member.id)
+    members.value = members.value.filter((m) => m.id !== member.id)
   } catch (e) {
     error.value = extractErrorMessage(e, 'Failed to remove member')
   }
@@ -363,7 +367,7 @@ onMounted(() => {
           <div v-else class="space-y-2">
             <div
               v-for="member in members"
-              :key="member.user_id"
+              :key="member.id"
               class="flex items-center justify-between p-3 bg-neutral-50 rounded-lg"
             >
               <div class="flex items-center">
@@ -380,8 +384,8 @@ onMounted(() => {
                 </div>
               </div>
               <div class="flex items-center gap-3">
-                <Tag :type="member.role === 'admin' ? 'primary' : 'default'">
-                  {{ member.role }}
+                <Tag :type="member.is_primary ? 'primary' : 'default'">
+                  {{ member.is_primary ? 'Primary' : 'Member' }}
                 </Tag>
                 <button
                   @click="handleRemoveMember(member)"
