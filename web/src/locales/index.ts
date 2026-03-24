@@ -12,13 +12,18 @@ const messages = {
   'en-US': enUS,
 }
 
+// Supported locales
+export type SupportedLocale = 'zh-CN' | 'en-US'
+
 // Get saved locale from localStorage, default to Chinese
-const getSavedLocale = (): string => {
+const getSavedLocale = (): SupportedLocale => {
   if (typeof window === 'undefined') return 'zh-CN'
-  return localStorage.getItem('locale') || 'zh-CN'
+  const saved = localStorage.getItem('locale')
+  if (saved === 'zh-CN' || saved === 'en-US') return saved
+  return 'zh-CN'
 }
 
-const i18n = createI18n<[MessageSchema], 'zh-CN' | 'en-US'>({
+const i18n = createI18n<[MessageSchema], SupportedLocale>({
   legacy: false, // Use Composition API mode
   locale: getSavedLocale(),
   fallbackLocale: 'zh-CN',
@@ -27,14 +32,18 @@ const i18n = createI18n<[MessageSchema], 'zh-CN' | 'en-US'>({
 
 export default i18n
 
+// Type for accessing locale in Composition API mode
+type I18nGlobalLocale = { value: SupportedLocale }
+
 /**
  * Switch language
  * @param locale - Target locale ('zh-CN' | 'en-US')
  */
-export function setLocale(locale: 'zh-CN' | 'en-US'): void {
+export function setLocale(locale: SupportedLocale): void {
   if (typeof window === 'undefined') return
 
-  i18n.global.locale.value = locale
+  // In legacy: false mode, locale is a Ref<SupportedLocale>
+  ;(i18n.global.locale as unknown as I18nGlobalLocale).value = locale
   localStorage.setItem('locale', locale)
   document.documentElement.lang = locale
 }
@@ -42,8 +51,9 @@ export function setLocale(locale: 'zh-CN' | 'en-US'): void {
 /**
  * Get current locale
  */
-export function getLocale(): string {
-  return i18n.global.locale.value
+export function getLocale(): SupportedLocale {
+  // In legacy: false mode, locale is a Ref<SupportedLocale>
+  return (i18n.global.locale as unknown as I18nGlobalLocale).value
 }
 
 /**
