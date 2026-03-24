@@ -198,9 +198,34 @@ export default {
     namePlaceholder: 'Role name',
     descPlaceholder: 'Role description',
     update: 'Update',
+    create: 'Create',
+    add: 'Add',
+    loading: 'Loading roles...',
+    edit: 'Edit',
     failedToCreate: 'Failed to create role',
     failedToUpdate: 'Failed to update role',
     failedToDelete: 'Failed to delete role',
+  },
+
+  // Search Bar
+  searchBar: {
+    placeholder: 'Search skills by name, description...',
+    search: 'Search',
+  },
+
+  // Skill Card
+  skillCard: {
+    downloads: '{count} downloads',
+  },
+
+  // Admin Navigation Cards
+  adminNav: {
+    userManagement: 'User Management',
+    userManagementDesc: 'Manage users and roles',
+    departmentManagement: 'Department Management',
+    departmentManagementDesc: 'Manage teams and departments',
+    roleManagement: 'Role Management',
+    roleManagementDesc: 'Configure roles and permissions',
   },
 
   // API Errors

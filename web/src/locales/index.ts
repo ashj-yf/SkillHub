@@ -5,15 +5,13 @@ import { createI18n } from 'vue-i18n'
 import zhCN from './zh-CN'
 import enUS from './en-US'
 
-export type MessageSchema = typeof zhCN
-
-const messages = {
-  'zh-CN': zhCN,
-  'en-US': enUS,
-}
-
 // Supported locales
 export type SupportedLocale = 'zh-CN' | 'en-US'
+
+const messages: Record<SupportedLocale, typeof zhCN> = {
+  'zh-CN': zhCN,
+  'en-US': enUS as typeof zhCN,
+}
 
 // Get saved locale from localStorage, default to Chinese
 const getSavedLocale = (): SupportedLocale => {
@@ -23,7 +21,7 @@ const getSavedLocale = (): SupportedLocale => {
   return 'zh-CN'
 }
 
-const i18n = createI18n<[MessageSchema], SupportedLocale>({
+const i18n = createI18n({
   legacy: false, // Use Composition API mode
   locale: getSavedLocale(),
   fallbackLocale: 'zh-CN',
@@ -31,9 +29,6 @@ const i18n = createI18n<[MessageSchema], SupportedLocale>({
 })
 
 export default i18n
-
-// Type for accessing locale in Composition API mode
-type I18nGlobalLocale = { value: SupportedLocale }
 
 /**
  * Switch language
@@ -43,7 +38,7 @@ export function setLocale(locale: SupportedLocale): void {
   if (typeof window === 'undefined') return
 
   // In legacy: false mode, locale is a Ref<SupportedLocale>
-  ;(i18n.global.locale as unknown as I18nGlobalLocale).value = locale
+  i18n.global.locale.value = locale
   localStorage.setItem('locale', locale)
   document.documentElement.lang = locale
 }
@@ -53,7 +48,7 @@ export function setLocale(locale: SupportedLocale): void {
  */
 export function getLocale(): SupportedLocale {
   // In legacy: false mode, locale is a Ref<SupportedLocale>
-  return (i18n.global.locale as unknown as I18nGlobalLocale).value
+  return i18n.global.locale.value as SupportedLocale
 }
 
 /**
