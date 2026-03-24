@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { useUserStore } from '@/stores/user'
 import { useRouter } from 'vue-router'
 
+const { t } = useI18n()
 const userStore = useUserStore()
 const router = useRouter()
 
@@ -17,7 +19,7 @@ function handleLogout() {
       <div class="flex justify-between h-16">
         <div class="flex items-center">
           <router-link to="/" class="text-xl font-bold text-neutral-900">
-            Skills Hub
+            {{ t('nav.brand') }}
           </router-link>
         </div>
 
@@ -26,7 +28,7 @@ function handleLogout() {
             to="/"
             class="text-neutral-600 hover:text-neutral-900 px-3 py-2 rounded-md text-sm font-medium"
           >
-            技能市场
+            {{ t('nav.market') }}
           </router-link>
 
           <template v-if="userStore.isLoggedIn">
@@ -34,13 +36,13 @@ function handleLogout() {
               to="/admin"
               class="text-neutral-600 hover:text-neutral-900 px-3 py-2 rounded-md text-sm font-medium"
             >
-              管理
+              {{ t('nav.admin') }}
             </router-link>
             <button
               @click="handleLogout"
               class="text-neutral-600 hover:text-neutral-900 px-3 py-2 rounded-md text-sm font-medium"
             >
-              退出
+              {{ t('auth.nav.logout') }}
             </button>
           </template>
 
@@ -49,13 +51,13 @@ function handleLogout() {
               to="/login"
               class="text-neutral-600 hover:text-neutral-900 px-3 py-2 rounded-md text-sm font-medium"
             >
-              登录
+              {{ t('auth.nav.login') }}
             </router-link>
             <router-link
               to="/register"
               class="bg-brand-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-brand-600"
             >
-              注册
+              {{ t('auth.nav.register') }}
             </router-link>
           </template>
         </div>

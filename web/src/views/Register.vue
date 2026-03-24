@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useUserStore } from '@/stores/user'
 import { extractErrorMessage } from '@/api/index'
 import AuthLayout from '@/design-system/layouts/AuthLayout.vue'
 import Button from '@/design-system/elements/Button/Button.vue'
 import Input from '@/design-system/elements/Input/Input.vue'
 
+const { t } = useI18n()
 const router = useRouter()
 const userStore = useUserStore()
 
@@ -21,22 +23,22 @@ async function handleRegister() {
 
   // Client-side validation
   if (!username.value || username.value.length > 50) {
-    error.value = 'Username must be 1-50 characters'
+    error.value = t('auth.errors.usernameLength')
     return
   }
 
   if (!email.value || !email.value.includes('@')) {
-    error.value = 'Please enter a valid email address'
+    error.value = t('auth.errors.invalidEmail')
     return
   }
 
   if (password.value.length < 8) {
-    error.value = 'Password must be at least 8 characters'
+    error.value = t('auth.errors.passwordTooShort')
     return
   }
 
   if (password.value !== confirmPassword.value) {
-    error.value = 'Passwords do not match'
+    error.value = t('auth.errors.passwordsNotMatch')
     return
   }
 
@@ -50,13 +52,13 @@ async function handleRegister() {
     // Redirect to login page after successful registration
     router.push({ name: 'Login', query: { registered: 'true' } })
   } catch (e) {
-    error.value = extractErrorMessage(e, 'Registration failed')
+    error.value = extractErrorMessage(e, t('auth.errors.registerFailed'))
   }
 }
 </script>
 
 <template>
-  <AuthLayout title="Create Account" subtitle="Sign up to get started">
+  <AuthLayout :title="t('auth.register.title')" :subtitle="t('auth.register.subtitle')">
     <form class="space-y-6" @submit.prevent="handleRegister">
       <!-- Error Message -->
       <div
@@ -69,9 +71,9 @@ async function handleRegister() {
       <!-- Username Input -->
       <Input
         v-model="username"
-        label="Username"
+        :label="t('auth.register.username')"
         type="text"
-        placeholder="Choose a username"
+        :placeholder="t('auth.register.usernamePlaceholder')"
         required
         :maxlength="50"
         :state="error && (!username || username.length > 50) ? 'error' : 'default'"
@@ -80,9 +82,9 @@ async function handleRegister() {
       <!-- Email Input -->
       <Input
         v-model="email"
-        label="Email"
+        :label="t('auth.login.email')"
         type="email"
-        placeholder="Enter your email"
+        :placeholder="t('auth.register.emailPlaceholder')"
         required
         :state="error && !email.includes('@') ? 'error' : 'default'"
       />
@@ -90,24 +92,24 @@ async function handleRegister() {
       <!-- Password Input -->
       <Input
         v-model="password"
-        label="Password"
+        :label="t('auth.login.password')"
         type="password"
-        placeholder="Create a password"
+        :placeholder="t('auth.register.passwordPlaceholder')"
         required
         show-password
-        hint="At least 8 characters"
+        :hint="t('auth.login.passwordHint')"
       />
 
       <!-- Confirm Password Input -->
       <Input
         v-model="confirmPassword"
-        label="Confirm Password"
+        :label="t('auth.register.confirmPassword')"
         type="password"
-        placeholder="Confirm your password"
+        :placeholder="t('auth.register.confirmPasswordPlaceholder')"
         required
         show-password
         :state="error && password !== confirmPassword ? 'error' : 'default'"
-        :error-message="password !== confirmPassword ? 'Passwords do not match' : ''"
+        :error-message="password !== confirmPassword ? t('auth.errors.passwordsNotMatch') : ''"
       />
 
       <!-- Submit Button -->
@@ -117,7 +119,7 @@ async function handleRegister() {
         :loading="userStore.loading"
         native-type="submit"
       >
-        {{ userStore.loading ? 'Creating Account...' : 'Create Account' }}
+        {{ userStore.loading ? t('auth.register.creating') : t('auth.register.createAccount') }}
       </Button>
     </form>
   </AuthLayout>

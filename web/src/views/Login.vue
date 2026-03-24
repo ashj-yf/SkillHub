@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useUserStore } from '@/stores/user'
 import { extractErrorMessage } from '@/api/index'
 import AuthLayout from '@/design-system/layouts/AuthLayout.vue'
 import Button from '@/design-system/elements/Button/Button.vue'
 import Input from '@/design-system/elements/Input/Input.vue'
 
+const { t } = useI18n()
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
@@ -19,12 +21,12 @@ async function handleLogin() {
   error.value = ''
 
   if (!email.value || !email.value.includes('@')) {
-    error.value = 'Please enter a valid email address'
+    error.value = t('auth.errors.invalidEmail')
     return
   }
 
   if (password.value.length < 8) {
-    error.value = 'Password must be at least 8 characters'
+    error.value = t('auth.errors.passwordTooShort')
     return
   }
 
@@ -38,13 +40,13 @@ async function handleLogin() {
     const redirect = route.query.redirect as string
     router.push(redirect || '/')
   } catch (e) {
-    error.value = extractErrorMessage(e, 'Login failed')
+    error.value = extractErrorMessage(e, t('auth.errors.loginFailed'))
   }
 }
 </script>
 
 <template>
-  <AuthLayout title="Welcome Back" subtitle="Sign in to your account">
+  <AuthLayout :title="t('auth.login.title')" :subtitle="t('auth.login.subtitle')">
     <form class="space-y-6" @submit.prevent="handleLogin">
       <!-- Error Message -->
       <div
@@ -59,15 +61,15 @@ async function handleLogin() {
         v-if="route.query.registered === 'true'"
         class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm"
       >
-        Registration successful! Please log in.
+        {{ t('auth.login.registerSuccess') }}
       </div>
 
       <!-- Email Input -->
       <Input
         v-model="email"
-        label="Email"
+        :label="t('auth.login.email')"
         type="email"
-        placeholder="Enter your email"
+        :placeholder="t('auth.login.emailPlaceholder')"
         required
         :state="error && !email.includes('@') ? 'error' : 'default'"
       />
@@ -75,12 +77,12 @@ async function handleLogin() {
       <!-- Password Input -->
       <Input
         v-model="password"
-        label="Password"
+        :label="t('auth.login.password')"
         type="password"
-        placeholder="Enter your password"
+        :placeholder="t('auth.login.passwordPlaceholder')"
         required
         show-password
-        hint="At least 8 characters"
+        :hint="t('auth.login.passwordHint')"
       />
 
       <!-- Submit Button -->
@@ -90,7 +92,7 @@ async function handleLogin() {
         :loading="userStore.loading"
         native-type="submit"
       >
-        {{ userStore.loading ? 'Signing in...' : 'Sign In' }}
+        {{ userStore.loading ? t('auth.login.signingIn') : t('auth.login.signIn') }}
       </Button>
     </form>
   </AuthLayout>

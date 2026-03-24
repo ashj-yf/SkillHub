@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { listSkills, type Skill, type SkillListParams } from '@/api/skills'
 import { extractErrorMessage } from '@/api/index'
 import AppLayout from '@/design-system/layouts/AppLayout.vue'
@@ -8,6 +9,7 @@ import SkillCard from '@/components/SkillCard.vue'
 import SearchBar from '@/components/SearchBar.vue'
 import Button from '@/design-system/elements/Button/Button.vue'
 
+const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 
@@ -164,11 +166,11 @@ onMounted(() => {
 </script>
 
 <template>
-  <AppLayout title="Skills Market">
+  <AppLayout :title="t('market.title')">
     <div class="max-w-7xl mx-auto">
       <!-- Page Header -->
       <div class="mb-8">
-        <h1 class="text-3xl font-bold text-neutral-900 mb-4">Skills Market</h1>
+        <h1 class="text-3xl font-bold text-neutral-900 mb-4">{{ t('market.title') }}</h1>
         <SearchBar @search="handleSearch" :initial-query="urlQuery" />
       </div>
 
@@ -194,14 +196,14 @@ onMounted(() => {
       <!-- Loading State -->
       <div v-if="loading" class="text-center py-12">
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500 mx-auto"></div>
-        <p class="text-neutral-500 mt-4">Loading...</p>
+        <p class="text-neutral-500 mt-4">{{ t('common.loading') }}</p>
       </div>
 
       <!-- Error State -->
       <div v-else-if="error" class="text-center py-12">
         <p class="text-red-500">{{ error }}</p>
         <Button type="primary" class="mt-4" @click="loadSkills()">
-          Retry
+          {{ t('common.retry') }}
         </Button>
       </div>
 
@@ -213,7 +215,7 @@ onMounted(() => {
             <svg class="w-5 h-5 mr-2 text-orange-500" fill="currentColor" viewBox="0 0 20 20">
               <path d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z" />
             </svg>
-            Popular Skills
+            {{ t('market.popularSkills') }}
           </h2>
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <SkillCard v-for="skill in popularSkills" :key="skill.id" :skill="skill" />
@@ -226,7 +228,7 @@ onMounted(() => {
             <svg class="w-5 h-5 mr-2 text-green-500" fill="currentColor" viewBox="0 0 20 20">
               <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
             </svg>
-            Latest Releases
+            {{ t('market.latestReleases') }}
           </h2>
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <SkillCard v-for="skill in latestSkills" :key="skill.id" :skill="skill" />
@@ -235,7 +237,7 @@ onMounted(() => {
 
         <!-- All Skills -->
         <section v-if="allSkills.length > 0">
-          <h2 class="text-xl font-semibold text-neutral-900 mb-4">All Skills</h2>
+          <h2 class="text-xl font-semibold text-neutral-900 mb-4">{{ t('market.allSkills') }}</h2>
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <SkillCard v-for="skill in allSkills" :key="skill.id" :skill="skill" />
           </div>
@@ -243,7 +245,7 @@ onMounted(() => {
 
         <!-- Empty State -->
         <div v-if="allSkills.length === 0" class="text-center py-12">
-          <p class="text-neutral-500">No skills available</p>
+          <p class="text-neutral-500">{{ t('market.noSkills') }}</p>
         </div>
       </template>
 
@@ -252,26 +254,26 @@ onMounted(() => {
         <div class="mb-4">
           <div class="flex items-center justify-between">
             <p class="text-neutral-600">
-              Found <span class="font-semibold">{{ displayedSkills.length }}</span> skills
-              <template v-if="searchQuery">, searching "{{ searchQuery }}"</template>
-              <template v-if="selectedTag">, tag "{{ selectedTag }}"</template>
+              {{ t('market.foundSkills', { count: displayedSkills.length }) }}
+              <template v-if="searchQuery">, {{ t('market.searchingFor', { query: searchQuery }) }}</template>
+              <template v-if="selectedTag">, {{ t('market.tagFiltering', { tag: selectedTag }) }}</template>
             </p>
             <button
               @click="clearFilters"
               class="text-brand-500 hover:text-brand-700 text-sm"
             >
-              Clear filters
+              {{ t('common.clearFilters') }}
             </button>
           </div>
         </div>
 
         <div v-if="displayedSkills.length === 0" class="text-center py-12">
-          <p class="text-neutral-500">No matching skills found</p>
+          <p class="text-neutral-500">{{ t('market.noMatching') }}</p>
           <button
             @click="clearFilters"
             class="mt-4 text-brand-500 hover:text-brand-700"
           >
-            View all skills
+            {{ t('common.viewAll') }}
           </button>
         </div>
 
@@ -286,7 +288,7 @@ onMounted(() => {
             :loading="loadingMore"
             @click="loadMore"
           >
-            {{ loadingMore ? 'Loading...' : 'Load More' }}
+            {{ loadingMore ? t('common.loading') : t('market.loadMore') }}
           </Button>
         </div>
       </template>
