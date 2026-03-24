@@ -135,3 +135,87 @@ pub fn hash_password(password: &str) -> Result<String> {
 pub fn verify_password(password: &str, hash: &str) -> Result<bool> {
     Ok(verify(password, hash)?)
 }
+
+impl AuthService {
+    /// 刷新 Token，返回新的 JWT
+    pub async fn refresh_token(&self, user_id: uuid::Uuid) -> Result<String> {
+        debug!(user_id = %user_id, "Refreshing token");
+
+        // 验证用户是否存在且激活
+        let user = self.user_repo
+            .find_by_id(user_id)
+            .await?
+            .ok_or_else(|| anyhow!("用户不存在"))?;
+
+        if !user.is_active {
+            warn!(user_id = %user_id, "Token refresh failed: account disabled");
+            return Err(anyhow!("账户已被禁用"));
+        }
+
+        // 生成新 Token
+        let token = create_token(
+            &user.id.to_string(),
+            &user.role,
+            &self.jwt_secret,
+            self.jwt_expiration_hours,
+        )?;
+
+        info!(user_id = %user.id, "Token refreshed successfully");
+
+        Ok(token)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::utils::jwt::verify_token;
+
+    #[test]
+    fn test_refresh_token_creates_valid_token() {
+        // 测试 refresh_token 方法生成的 token 可以被验证
+        let secret = "test-secret-key-for-refresh-token-test";
+        let user_id = uuid::Uuid::new_v4();
+
+        // 直接调用 create_token 模拟 refresh 逻辑
+        let token = create_token(
+            &user_id.to_string(),
+            "user",
+            secret,
+            24,
+        ).unwrap();
+
+        // 验证生成的 token
+        let claims = verify_token(&token, secret).unwrap();
+
+        assert_eq!(claims.sub, user_id.to_string());
+        assert_eq!(claims.role, "user");
+    }
+
+    #[test]
+    fn test_refresh_token_different_from_original() {
+        // 测试刷新后的 token 与原 token 不同（因为 iat 不同）
+        let secret = "test-secret-key";
+        let user_id = uuid::Uuid::new_v4();
+
+        let token1 = create_token(
+            &user_id.to_string(),
+            "user",
+            secret,
+            24,
+        ).unwrap();
+
+        // 模拟时间流逝（实际中 iat 会不同）
+        std::thread::sleep(std::time::Duration::from_secs(1));
+
+        let token2 = create_token(
+            &user_id.to_string(),
+            "user",
+            secret,
+            24,
+        ).unwrap();
+
+        // 两个 token 应该不同（因为 iat 时间戳不同）
+        assert_ne!(token1, token2);
+    }
+}

@@ -4,6 +4,7 @@ use sqlx::PgPool;
 use tracing::{debug, info, warn};
 use uuid::Uuid;
 
+use crate::cache::{CacheKey, RedisCache, ttl};
 use crate::models::skill::{CreateSkill, CreateSkillTag, CreateSkillVersion, Skill, SkillTag, SkillTagResponse, SkillVersion, SkillManifest, UpdateSkill};
 use crate::repos::skill::SkillRepo;
 use crate::storage::Storage;
@@ -14,6 +15,7 @@ const STORAGE_THRESHOLD: usize = 10 * 1024;
 pub struct SkillService {
     skill_repo: SkillRepo,
     storage: Storage,
+    cache: Option<RedisCache>,
 }
 
 impl SkillService {
@@ -21,6 +23,16 @@ impl SkillService {
         Self {
             skill_repo: SkillRepo::new(pool),
             storage,
+            cache: None,
+        }
+    }
+
+    /// 创建带缓存的 SkillService
+    pub fn with_cache(pool: PgPool, storage: Storage, cache: Option<RedisCache>) -> Self {
+        Self {
+            skill_repo: SkillRepo::new(pool),
+            storage,
+            cache,
         }
     }
 
@@ -36,10 +48,32 @@ impl SkillService {
     pub async fn get_by_slug(&self, slug: &str) -> Result<Skill> {
         debug!(slug = %slug, "Fetching skill by slug");
 
-        self.skill_repo
+        // 尝试从缓存获取
+        if let Some(ref cache) = self.cache {
+            let cache_key = CacheKey::skill_detail(slug);
+            if let Ok(Some(cached)) = cache.get(&cache_key).await {
+                if let Ok(skill) = serde_json::from_str::<Skill>(&cached) {
+                    debug!(slug = %slug, "Cache hit for skill detail");
+                    return Ok(skill);
+                }
+            }
+        }
+
+        // 从数据库获取
+        let skill = self.skill_repo
             .find_by_slug(slug)
             .await?
-            .ok_or_else(|| anyhow!("技能不存在"))
+            .ok_or_else(|| anyhow!("技能不存在"))?;
+
+        // 写入缓存
+        if let Some(ref cache) = self.cache {
+            let cache_key = CacheKey::skill_detail(slug);
+            if let Ok(json) = serde_json::to_string(&skill) {
+                let _ = cache.set(&cache_key, &json, ttl::SKILL_DETAIL).await;
+            }
+        }
+
+        Ok(skill)
     }
 
     /// 获取技能的指定版本（支持 tag）

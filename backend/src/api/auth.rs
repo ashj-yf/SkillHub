@@ -6,6 +6,7 @@ use axum::{
 };
 use serde::Deserialize;
 
+use crate::middleware::auth::AuthUser;
 use crate::models::user::{CreateUser, LoginRequest};
 use crate::services::auth::AuthService;
 use crate::state::AppState;
@@ -22,6 +23,7 @@ pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/auth/register", post(register))
         .route("/auth/login", post(login))
+        .route("/auth/refresh", post(refresh))
         .route("/health", get(health))
 }
 
@@ -64,6 +66,19 @@ pub async fn login(
     let service = AuthService::new(state.db, state.jwt_secret, 24);
 
     let token = service.login(payload).await?;
+
+    Ok(Json(serde_json::json!({ "token": token })))
+}
+
+/// 刷新 Token，获取新的 JWT
+pub async fn refresh(
+    State(state): State<AppState>,
+    AuthUser(user): AuthUser,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let service = AuthService::new(state.db, state.jwt_secret, 24);
+
+    // 使用当前用户 ID 刷新 Token
+    let token = service.refresh_token(user.id).await?;
 
     Ok(Json(serde_json::json!({ "token": token })))
 }

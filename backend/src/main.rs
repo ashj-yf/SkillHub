@@ -5,6 +5,7 @@ use tower_http::cors::{AllowOrigin, CorsLayer};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use skillhub_backend::api;
+use skillhub_backend::cache::RedisCache;
 use skillhub_backend::config::Config;
 use skillhub_backend::state::AppState;
 use skillhub_backend::storage::Storage;
@@ -63,6 +64,35 @@ async fn main() -> anyhow::Result<()> {
         "Object storage connected"
     );
 
+    // 初始化 Redis 缓存（可选）
+    tracing::debug!(
+        redis_url = %config.redis_url,
+        "Connecting to Redis..."
+    );
+    let cache = match RedisCache::new(&config.redis_url) {
+        Ok(cache) => {
+            // 验证连接
+            match cache.ping().await {
+                Ok(true) => {
+                    tracing::info!("Redis cache connected");
+                    Some(cache)
+                }
+                Ok(false) => {
+                    tracing::warn!("Redis ping returned unexpected response, cache disabled");
+                    None
+                }
+                Err(e) => {
+                    tracing::warn!(error = %e, "Redis connection failed, cache disabled");
+                    None
+                }
+            }
+        }
+        Err(e) => {
+            tracing::warn!(error = %e, "Failed to create Redis client, cache disabled");
+            None
+        }
+    };
+
     // 配置 CORS（从环境变量读取允许的来源）
     let allowed_origins: Vec<String> = std::env::var("CORS_ORIGINS")
         .unwrap_or_else(|_| "http://localhost:5173,http://localhost:3000".into())
@@ -75,6 +105,7 @@ async fn main() -> anyhow::Result<()> {
         db: db.clone(),
         jwt_secret: config.jwt_secret.clone(),
         storage,
+        cache,
     };
 
     // 构建路由

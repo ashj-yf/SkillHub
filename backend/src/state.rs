@@ -1,6 +1,7 @@
 use axum::extract::FromRef;
 use sqlx::PgPool;
 
+use crate::cache::RedisCache;
 use crate::storage::Storage;
 
 /// Application state shared across all routes
@@ -9,6 +10,7 @@ pub struct AppState {
     pub db: PgPool,
     pub jwt_secret: String,
     pub storage: Storage,
+    pub cache: Option<RedisCache>,
 }
 
 impl FromRef<AppState> for PgPool {
@@ -26,5 +28,11 @@ impl FromRef<AppState> for String {
 impl FromRef<AppState> for Storage {
     fn from_ref(state: &AppState) -> Storage {
         state.storage.clone()
+    }
+}
+
+impl FromRef<AppState> for Option<RedisCache> {
+    fn from_ref(state: &AppState) -> Option<RedisCache> {
+        state.cache.clone()
     }
 }

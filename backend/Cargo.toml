@@ -25,6 +25,7 @@ sha2 = "0.10"
 regex = "1"
 aws-sdk-s3 = "1"
 aws-config = "1"
+redis = { version = "0.25", features = ["tokio-comp", "connection-manager"] }
 
 [dev-dependencies]
 tokio-test = "0.4"

@@ -12,6 +12,7 @@ pub struct Config {
     pub storage_access_key: String,
     pub storage_secret_key: String,
     pub storage_bucket: String,
+    pub redis_url: String,
 }
 
 impl Config {
@@ -45,6 +46,8 @@ impl Config {
                 .context("STORAGE_SECRET_KEY environment variable is required")?,
             storage_bucket: std::env::var("STORAGE_BUCKET")
                 .unwrap_or_else(|_| "skills".into()),
+            redis_url: std::env::var("REDIS_URL")
+                .unwrap_or_else(|_| "redis://127.0.0.1:6379".into()),
         })
     }
 }
