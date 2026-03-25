@@ -130,7 +130,7 @@ pub async fn list_users(
     check_permission_or_forbidden(&state, current_user.id, resources::USERS, actions::READ).await?;
 
     let user_repo = UserRepo::new(state.db.clone());
-    let role_repo = RoleRepo::new(state.db);
+    let role_repo = RoleRepo::new(state.db.clone());
 
     let users = user_repo.find_all().await?;
 
@@ -166,7 +166,7 @@ pub async fn get_user(
     }
 
     let user_repo = UserRepo::new(state.db.clone());
-    let role_repo = RoleRepo::new(state.db);
+    let role_repo = RoleRepo::new(state.db.clone());
 
     let user = user_repo.find_by_id(id).await?
         .ok_or_else(|| ApiError::NotFound("用户不存在".into()))?;
@@ -193,13 +193,13 @@ pub async fn update_user(
     Path(id): Path<Uuid>,
     Json(payload): Json<UpdateUserRequest>,
 ) -> Result<Json<UserDetail>, ApiError> {
-    let user_repo = UserRepo::new(state.db.clone());
-    let role_repo = RoleRepo::new(state.db);
-
     // 权限检查：用户本人或 users:update 权限
     if current_user.id != id {
         check_permission_or_forbidden(&state, current_user.id, resources::USERS, actions::UPDATE).await?;
     }
+
+    let user_repo = UserRepo::new(state.db.clone());
+    let role_repo = RoleRepo::new(state.db.clone());
 
     // 如果更新用户名，检查是否已存在
     if let Some(ref username) = payload.username {
@@ -273,7 +273,7 @@ pub async fn get_user_roles(
     }
 
     let user_repo = UserRepo::new(state.db.clone());
-    let role_repo = RoleRepo::new(state.db);
+    let role_repo = RoleRepo::new(state.db.clone());
 
     // 检查用户是否存在
     if user_repo.find_by_id(id).await?.is_none() {
@@ -297,7 +297,7 @@ pub async fn assign_role(
     check_permission_or_forbidden(&state, current_user.id, resources::ROLES, "manage").await?;
 
     let user_repo = UserRepo::new(state.db.clone());
-    let role_repo = RoleRepo::new(state.db);
+    let role_repo = RoleRepo::new(state.db.clone());
 
     // 检查用户是否存在
     if user_repo.find_by_id(id).await?.is_none() {
@@ -322,7 +322,7 @@ pub async fn remove_role(
     check_permission_or_forbidden(&state, current_user.id, resources::ROLES, "manage").await?;
 
     let user_repo = UserRepo::new(state.db.clone());
-    let role_repo = RoleRepo::new(state.db);
+    let role_repo = RoleRepo::new(state.db.clone());
 
     // 检查用户是否存在
     if user_repo.find_by_id(id).await?.is_none() {

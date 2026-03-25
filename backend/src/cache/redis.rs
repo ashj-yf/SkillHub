@@ -30,7 +30,7 @@ impl RedisCache {
     /// 设置缓存值
     pub async fn set(&self, key: &str, value: &str, ttl: Duration) -> Result<()> {
         let mut conn = self.get_connection().await?;
-        let ttl_secs = ttl.as_secs() as i64;
+        let ttl_secs = ttl.as_secs();
 
         conn.set_ex(key, value, ttl_secs)
             .await
