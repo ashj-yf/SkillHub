@@ -157,9 +157,14 @@ pub async fn list_users(
 /// 获取用户详情
 pub async fn get_user(
     State(state): State<AppState>,
-    AuthUser(_current_user): AuthUser,
+    AuthUser(current_user): AuthUser,
     Path(id): Path<Uuid>,
 ) -> Result<Json<UserDetail>, ApiError> {
+    // 权限检查：用户本人或 users:read 权限
+    if current_user.id != id {
+        check_permission_or_forbidden(&state, current_user.id, resources::USERS, actions::READ).await?;
+    }
+
     let user_repo = UserRepo::new(state.db.clone());
     let role_repo = RoleRepo::new(state.db);
 
@@ -259,8 +264,14 @@ pub async fn delete_user(
 /// 获取用户的角色列表
 pub async fn get_user_roles(
     State(state): State<AppState>,
+    AuthUser(current_user): AuthUser,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Vec<String>>, ApiError> {
+    // 权限检查：用户本人或 users:read 权限
+    if current_user.id != id {
+        check_permission_or_forbidden(&state, current_user.id, resources::USERS, actions::READ).await?;
+    }
+
     let user_repo = UserRepo::new(state.db.clone());
     let role_repo = RoleRepo::new(state.db);
 
