@@ -38,6 +38,18 @@ const routes = [
     meta: { requiresAuth: true, layout: 'app' }
   },
 
+  // Profile and Settings routes (placeholder - redirect to admin for now)
+  {
+    path: '/profile',
+    name: 'Profile',
+    redirect: '/admin'
+  },
+  {
+    path: '/settings',
+    name: 'Settings',
+    redirect: '/admin'
+  },
+
   // Admin routes - use AppLayout with sidebar
   {
     path: '/admin',

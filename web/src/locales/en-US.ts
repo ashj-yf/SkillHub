@@ -240,6 +240,7 @@ export default {
     help: 'Help',
     privacy: 'Privacy Policy',
     terms: 'Terms of Service',
+    notificationsComingSoon: 'Notifications coming soon',
   },
 
   // API Errors

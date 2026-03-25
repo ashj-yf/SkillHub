@@ -166,7 +166,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <AppLayout :title="t('market.title')">
+  <AppLayout :title="t('market.title')" :show-sidebar="true">
     <div class="max-w-7xl mx-auto">
       <!-- Page Header -->
       <div class="mb-8">

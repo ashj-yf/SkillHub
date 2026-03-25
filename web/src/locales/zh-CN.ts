@@ -241,6 +241,7 @@ export default {
     help: '帮助文档',
     privacy: '隐私政策',
     terms: '服务条款',
+    notificationsComingSoon: '通知功能即将推出',
   },
 
   // API 错误消息（前端显示）

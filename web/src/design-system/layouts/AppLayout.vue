@@ -113,6 +113,12 @@ const toggleMobileMenu = () => {
 const toggleUserMenu = () => {
   isUserMenuOpen.value = !isUserMenuOpen.value
 }
+
+// 通知按钮处理
+const handleNotifications = () => {
+  // TODO: 实现通知面板
+  alert(t('appLayout.notificationsComingSoon') || '通知功能即将推出')
+}
 </script>
 
 <template>
@@ -156,7 +162,10 @@ const toggleUserMenu = () => {
           <!-- 已登录：显示通知按钮和用户菜单 -->
           <template v-if="isLoggedIn">
             <!-- 通知按钮 -->
-            <button class="p-2 rounded-lg hover:bg-neutral-100 transition-colors relative">
+            <button
+              class="p-2 rounded-lg hover:bg-neutral-100 transition-colors relative"
+              @click="handleNotifications"
+            >
               <svg class="w-5 h-5 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
               </svg>
@@ -327,9 +336,9 @@ const toggleUserMenu = () => {
       <div class="flex flex-col sm:flex-row justify-between items-center text-sm text-neutral-500">
         <p>{{ t('appLayout.copyright', { year: new Date().getFullYear() }) }}</p>
         <div class="flex space-x-4 mt-2 sm:mt-0">
-          <a href="#" class="hover:text-neutral-700">{{ t('appLayout.help') }}</a>
-          <a href="#" class="hover:text-neutral-700">{{ t('appLayout.privacy') }}</a>
-          <a href="#" class="hover:text-neutral-700">{{ t('appLayout.terms') }}</a>
+          <router-link to="/admin" class="hover:text-neutral-700">{{ t('appLayout.help') }}</router-link>
+          <router-link to="/admin" class="hover:text-neutral-700">{{ t('appLayout.privacy') }}</router-link>
+          <router-link to="/admin" class="hover:text-neutral-700">{{ t('appLayout.terms') }}</router-link>
         </div>
       </div>
     </footer>

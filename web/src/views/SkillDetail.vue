@@ -156,7 +156,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <AppLayout :title="skill?.name || t('skill.loading')" :show-sidebar="false">
+  <AppLayout :title="skill?.name || t('skill.loading')" :show-sidebar="true">
     <div class="max-w-4xl mx-auto">
       <!-- Loading State -->
       <div v-if="loading" class="text-center py-12">
