@@ -26,6 +26,7 @@ pub struct UserInfo {
     pub username: String,
     pub email: String,
     pub role: String,
+    pub roles: Vec<String>,  // 用户角色列表
 }
 
 /// 用户详情响应（包含角色列表）
@@ -85,15 +86,21 @@ pub async fn get_current_user(
 
     let token = &auth_header[7..];
 
-    let service = AuthService::new(state.db, state.jwt_secret, 24);
+    let service = AuthService::new(state.db.clone(), state.jwt_secret, 24);
 
     let user = service.validate_token(token).await?;
+
+    // 获取用户的角色列表
+    let role_repo = RoleRepo::new(state.db);
+    let roles = role_repo.get_user_roles(user.id).await?;
+    let role_names: Vec<String> = roles.into_iter().map(|r| r.name).collect();
 
     Ok(Json(UserInfo {
         id: user.id.to_string(),
         username: user.username,
         email: user.email,
         role: user.role,
+        roles: role_names,
     }))
 }
 
