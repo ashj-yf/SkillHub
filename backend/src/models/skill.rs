@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
 
+use crate::middleware::permission::Ownable;
+
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct Skill {
     pub id: Uuid,
@@ -92,4 +94,12 @@ pub struct SkillManifest {
     pub tags: std::collections::HashMap<String, String>,
     pub versions: Vec<String>,
     pub updated_at: DateTime<Utc>,
+}
+
+// ==================== Ownable 实现 ====================
+
+impl Ownable for Skill {
+    fn owner_id(&self) -> Option<Uuid> {
+        self.author_id
+    }
 }

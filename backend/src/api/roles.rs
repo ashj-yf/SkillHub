@@ -7,6 +7,9 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::middleware::auth::AuthUser;
+use crate::middleware::permission::{
+    check_permission_or_forbidden, resources, actions,
+};
 use crate::models::role::{CreateRole, Role, RoleDetail, UpdateRole};
 use crate::models::permission::Permission;
 use crate::repos::permission::PermissionRepo;
@@ -44,9 +47,12 @@ pub async fn list_roles(
 /// 创建角色
 pub async fn create_role(
     State(state): State<AppState>,
-    AuthUser(_current_user): AuthUser,
+    AuthUser(current_user): AuthUser,
     Json(payload): Json<CreateRole>,
 ) -> Result<Json<Role>, ApiError> {
+    // 权限检查：需要 roles:create 权限
+    check_permission_or_forbidden(&state, current_user.id, resources::ROLES, actions::CREATE).await?;
+
     // 验证
     if payload.name.is_empty() || payload.name.len() > 50 {
         return Err(ApiError::BadRequest("角色名称长度应为 1-50 个字符".into()));
@@ -78,10 +84,13 @@ pub async fn get_role(
 /// 更新角色
 pub async fn update_role(
     State(state): State<AppState>,
-    AuthUser(_current_user): AuthUser,
+    AuthUser(current_user): AuthUser,
     Path(id): Path<Uuid>,
     Json(payload): Json<UpdateRole>,
 ) -> Result<Json<Role>, ApiError> {
+    // 权限检查：需要 roles:update 权限
+    check_permission_or_forbidden(&state, current_user.id, resources::ROLES, actions::UPDATE).await?;
+
     let repo = RoleRepo::new(state.db);
 
     // 如果更新名称，检查是否已存在
@@ -102,9 +111,12 @@ pub async fn update_role(
 /// 删除角色
 pub async fn delete_role(
     State(state): State<AppState>,
-    AuthUser(_current_user): AuthUser,
+    AuthUser(current_user): AuthUser,
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode, ApiError> {
+    // 权限检查：需要 roles:delete 权限
+    check_permission_or_forbidden(&state, current_user.id, resources::ROLES, actions::DELETE).await?;
+
     let repo = RoleRepo::new(state.db);
 
     let deleted = repo.delete(id).await?;
@@ -134,10 +146,13 @@ pub async fn get_role_permissions(
 /// 为角色添加权限
 pub async fn add_permission(
     State(state): State<AppState>,
-    AuthUser(_current_user): AuthUser,
+    AuthUser(current_user): AuthUser,
     Path(id): Path<Uuid>,
     Json(payload): Json<AddPermissionRequest>,
 ) -> Result<StatusCode, ApiError> {
+    // 权限检查：需要 roles:update 权限（管理角色权限视为更新角色）
+    check_permission_or_forbidden(&state, current_user.id, resources::ROLES, actions::UPDATE).await?;
+
     let role_repo = RoleRepo::new(state.db.clone());
     let permission_repo = PermissionRepo::new(state.db);
 
@@ -158,9 +173,12 @@ pub async fn add_permission(
 /// 从角色移除权限
 pub async fn remove_permission(
     State(state): State<AppState>,
-    AuthUser(_current_user): AuthUser,
+    AuthUser(current_user): AuthUser,
     Path((id, permission_id)): Path<(Uuid, Uuid)>,
 ) -> Result<StatusCode, ApiError> {
+    // 权限检查：需要 roles:update 权限
+    check_permission_or_forbidden(&state, current_user.id, resources::ROLES, actions::UPDATE).await?;
+
     let repo = RoleRepo::new(state.db);
     repo.remove_permission(id, permission_id).await?;
     Ok(StatusCode::NO_CONTENT)

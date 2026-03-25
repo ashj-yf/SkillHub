@@ -7,6 +7,9 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::middleware::auth::AuthUser;
+use crate::middleware::permission::{
+    check_permission_or_forbidden, resources, actions,
+};
 use crate::models::group::{AddUserToGroup, CreateGroup, Group, GroupDetail, GroupTreeNode, UpdateGroup};
 use crate::repos::group::GroupRepo;
 use crate::repos::user::UserRepo;
@@ -72,6 +75,9 @@ pub async fn create_group(
     AuthUser(current_user): AuthUser,
     Json(payload): Json<CreateGroup>,
 ) -> Result<Json<Group>, ApiError> {
+    // 权限检查：需要 groups:create 权限
+    check_permission_or_forbidden(&state, current_user.id, resources::GROUPS, actions::CREATE).await?;
+
     // 验证
     if payload.name.is_empty() || payload.name.len() > 100 {
         return Err(ApiError::BadRequest("用户组名称长度应为 1-100 个字符".into()));
@@ -110,10 +116,13 @@ pub async fn get_group(
 /// 更新用户组
 pub async fn update_group(
     State(state): State<AppState>,
-    AuthUser(_current_user): AuthUser,
+    AuthUser(current_user): AuthUser,
     Path(id): Path<Uuid>,
     Json(payload): Json<UpdateGroup>,
 ) -> Result<Json<Group>, ApiError> {
+    // 权限检查：需要 groups:update 权限
+    check_permission_or_forbidden(&state, current_user.id, resources::GROUPS, actions::UPDATE).await?;
+
     let repo = GroupRepo::new(state.db);
 
     // 如果更新名称，检查是否已存在
@@ -145,9 +154,12 @@ pub async fn update_group(
 /// 删除用户组
 pub async fn delete_group(
     State(state): State<AppState>,
-    AuthUser(_current_user): AuthUser,
+    AuthUser(current_user): AuthUser,
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode, ApiError> {
+    // 权限检查：需要 groups:delete 权限
+    check_permission_or_forbidden(&state, current_user.id, resources::GROUPS, actions::DELETE).await?;
+
     let repo = GroupRepo::new(state.db);
 
     let deleted = repo.delete(id).await?;
@@ -201,10 +213,13 @@ pub async fn get_group_members(
 /// 添加成员到用户组
 pub async fn add_member(
     State(state): State<AppState>,
-    AuthUser(_current_user): AuthUser,
+    AuthUser(current_user): AuthUser,
     Path(id): Path<Uuid>,
     Json(payload): Json<AddUserToGroup>,
 ) -> Result<StatusCode, ApiError> {
+    // 权限检查：需要 groups:update 权限
+    check_permission_or_forbidden(&state, current_user.id, resources::GROUPS, actions::UPDATE).await?;
+
     let group_repo = GroupRepo::new(state.db.clone());
     let user_repo = UserRepo::new(state.db);
 
@@ -227,8 +242,12 @@ pub async fn add_member(
 /// 从用户组移除成员
 pub async fn remove_member(
     State(state): State<AppState>,
+    AuthUser(current_user): AuthUser,
     Path((id, user_id)): Path<(Uuid, Uuid)>,
 ) -> Result<StatusCode, ApiError> {
+    // 权限检查：需要 groups:update 权限
+    check_permission_or_forbidden(&state, current_user.id, resources::GROUPS, actions::UPDATE).await?;
+
     let repo = GroupRepo::new(state.db);
     repo.remove_user(id, user_id).await?;
     Ok(StatusCode::NO_CONTENT)

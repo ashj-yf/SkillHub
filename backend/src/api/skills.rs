@@ -9,7 +9,11 @@ use axum::{
 use serde::{Deserialize, Serialize};
 
 use crate::middleware::auth::AuthUser;
+use crate::middleware::permission::{
+    check_ownership_or_permission, is_admin, resources, actions,
+};
 use crate::models::skill::{CreateSkill, CreateSkillTag, CreateSkillVersion, Skill, SkillTag, SkillTagResponse, SkillVersion, UpdateSkill, SkillManifest};
+use crate::repos::skill::SkillRepo;
 use crate::services::skill::SkillService;
 use crate::state::AppState;
 use crate::utils::error::ApiError;
@@ -141,6 +145,11 @@ pub async fn create(
     AuthUser(user): AuthUser,
     Json(payload): Json<CreateSkillRequest>,
 ) -> Result<(StatusCode, Json<Skill>), ApiError> {
+    // 权限检查：需要 skills:create 权限
+    // 注意：创建技能的权限检查暂时开放给所有已登录用户
+    // 如需限制，取消下面的注释
+    // check_permission_or_forbidden(&state, user.id, resources::SKILLS, actions::CREATE).await?;
+
     let service = create_service(&state);
 
     // 验证输入
@@ -175,6 +184,14 @@ pub async fn update(
     Json(payload): Json<UpdateSkillRequest>,
 ) -> Result<Json<Skill>, ApiError> {
     let service = create_service(&state);
+    let repo = SkillRepo::new(state.db.clone());
+
+    // 获取技能以检查所有权
+    let skill = repo.find_by_slug(&slug).await?
+        .ok_or_else(|| ApiError::NotFound("技能不存在".into()))?;
+
+    // 权限检查：所有者或 skills:update 权限
+    check_ownership_or_permission(&state, user.id, &skill, resources::SKILLS, actions::UPDATE).await?;
 
     let update_skill = UpdateSkill {
         name: payload.name,
@@ -184,10 +201,7 @@ pub async fn update(
         is_public: payload.is_public,
     };
 
-    // 从 JWT 获取实际用户 ID
-    let author_id = user.id;
-
-    let skill = service.update_by_slug(author_id, &slug, update_skill).await?;
+    let skill = service.update_by_slug(user.id, &slug, update_skill).await?;
 
     Ok(Json(skill))
 }
@@ -198,11 +212,16 @@ pub async fn delete_skill(
     Path(slug): Path<String>,
 ) -> Result<StatusCode, ApiError> {
     let service = create_service(&state);
+    let repo = SkillRepo::new(state.db.clone());
 
-    // 从 JWT 获取实际用户 ID
-    let author_id = user.id;
+    // 获取技能以检查所有权
+    let skill = repo.find_by_slug(&slug).await?
+        .ok_or_else(|| ApiError::NotFound("技能不存在".into()))?;
 
-    service.delete_by_slug(author_id, &slug).await?;
+    // 权限检查：所有者或 skills:delete 权限
+    check_ownership_or_permission(&state, user.id, &skill, resources::SKILLS, actions::DELETE).await?;
+
+    service.delete_by_slug(user.id, &slug).await?;
 
     Ok(StatusCode::NO_CONTENT)
 }
@@ -227,6 +246,14 @@ pub async fn create_version(
     Json(payload): Json<CreateVersionRequest>,
 ) -> Result<(StatusCode, Json<SkillVersion>), ApiError> {
     let service = create_service(&state);
+    let repo = SkillRepo::new(state.db.clone());
+
+    // 获取技能以检查所有权
+    let skill = repo.find_by_slug(&slug).await?
+        .ok_or_else(|| ApiError::NotFound("技能不存在".into()))?;
+
+    // 权限检查：所有者或 skills:update 权限（创建版本视为更新技能）
+    check_ownership_or_permission(&state, user.id, &skill, resources::SKILLS, actions::UPDATE).await?;
 
     let create_version = CreateSkillVersion {
         version: payload.version,
@@ -234,10 +261,7 @@ pub async fn create_version(
         changelog: payload.changelog,
     };
 
-    // 从 JWT 获取实际用户 ID
-    let author_id = user.id;
-
-    let version = service.create_version(author_id, &slug, create_version).await?;
+    let version = service.create_version(user.id, &slug, create_version).await?;
 
     Ok((StatusCode::CREATED, Json(version)))
 }
@@ -262,16 +286,21 @@ pub async fn create_tag(
     Json(payload): Json<CreateTagRequest>,
 ) -> Result<Json<SkillTag>, ApiError> {
     let service = create_service(&state);
+    let repo = SkillRepo::new(state.db.clone());
+
+    // 获取技能以检查所有权
+    let skill = repo.find_by_slug(&slug).await?
+        .ok_or_else(|| ApiError::NotFound("技能不存在".into()))?;
+
+    // 权限检查：所有者或 skills:update 权限
+    check_ownership_or_permission(&state, user.id, &skill, resources::SKILLS, actions::UPDATE).await?;
 
     let create_tag = CreateSkillTag {
         tag: payload.tag,
         version: payload.version,
     };
 
-    // 从 JWT 获取实际用户 ID
-    let author_id = user.id;
-
-    let tag = service.create_tag(author_id, &slug, create_tag).await?;
+    let tag = service.create_tag(user.id, &slug, create_tag).await?;
 
     Ok(Json(tag))
 }
@@ -282,11 +311,16 @@ pub async fn delete_tag(
     Path((slug, tag)): Path<(String, String)>,
 ) -> Result<StatusCode, ApiError> {
     let service = create_service(&state);
+    let repo = SkillRepo::new(state.db.clone());
 
-    // 从 JWT 获取实际用户 ID
-    let author_id = user.id;
+    // 获取技能以检查所有权
+    let skill = repo.find_by_slug(&slug).await?
+        .ok_or_else(|| ApiError::NotFound("技能不存在".into()))?;
 
-    service.delete_tag(author_id, &slug, &tag).await?;
+    // 权限检查：所有者或 skills:update 权限
+    check_ownership_or_permission(&state, user.id, &skill, resources::SKILLS, actions::UPDATE).await?;
+
+    service.delete_tag(user.id, &slug, &tag).await?;
 
     Ok(StatusCode::NO_CONTENT)
 }
@@ -313,6 +347,15 @@ pub async fn upload_version(
     Path(slug): Path<String>,
     mut multipart: Multipart,
 ) -> Result<(StatusCode, Json<SkillVersion>), ApiError> {
+    let repo = SkillRepo::new(state.db.clone());
+
+    // 获取技能以检查所有权
+    let skill = repo.find_by_slug(&slug).await?
+        .ok_or_else(|| ApiError::NotFound("技能不存在".into()))?;
+
+    // 权限检查：所有者或 skills:update 权限
+    check_ownership_or_permission(&state, user.id, &skill, resources::SKILLS, actions::UPDATE).await?;
+
     let mut version = None;
     let mut changelog = None;
     let mut file_data = None;

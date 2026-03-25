@@ -8,6 +8,9 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::middleware::auth::AuthUser;
+use crate::middleware::permission::{
+    check_permission_or_forbidden, is_admin, resources, actions,
+};
 use crate::models::skill::Skill;
 use crate::models::user::User;
 use crate::repos::skill::SkillRepo;
@@ -121,8 +124,11 @@ pub async fn get_my_skills(
 /// 获取所有用户列表
 pub async fn list_users(
     State(state): State<AppState>,
-    AuthUser(_current_user): AuthUser,
+    AuthUser(current_user): AuthUser,
 ) -> Result<Json<Vec<UserDetail>>, ApiError> {
+    // 权限检查：需要 users:read 权限
+    check_permission_or_forbidden(&state, current_user.id, resources::USERS, actions::READ).await?;
+
     let user_repo = UserRepo::new(state.db.clone());
     let role_repo = RoleRepo::new(state.db);
 
@@ -178,12 +184,17 @@ pub async fn get_user(
 /// 更新用户
 pub async fn update_user(
     State(state): State<AppState>,
-    AuthUser(_current_user): AuthUser,
+    AuthUser(current_user): AuthUser,
     Path(id): Path<Uuid>,
     Json(payload): Json<UpdateUserRequest>,
 ) -> Result<Json<UserDetail>, ApiError> {
     let user_repo = UserRepo::new(state.db.clone());
     let role_repo = RoleRepo::new(state.db);
+
+    // 权限检查：用户本人或 users:update 权限
+    if current_user.id != id {
+        check_permission_or_forbidden(&state, current_user.id, resources::USERS, actions::UPDATE).await?;
+    }
 
     // 如果更新用户名，检查是否已存在
     if let Some(ref username) = payload.username {
@@ -229,9 +240,12 @@ pub async fn update_user(
 /// 删除用户
 pub async fn delete_user(
     State(state): State<AppState>,
-    AuthUser(_current_user): AuthUser,
+    AuthUser(current_user): AuthUser,
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode, ApiError> {
+    // 权限检查：需要 users:delete 权限
+    check_permission_or_forbidden(&state, current_user.id, resources::USERS, actions::DELETE).await?;
+
     let repo = UserRepo::new(state.db);
 
     let deleted = repo.delete(id).await?;
@@ -268,6 +282,9 @@ pub async fn assign_role(
     Path(id): Path<Uuid>,
     Json(payload): Json<AssignRoleRequest>,
 ) -> Result<StatusCode, ApiError> {
+    // 权限检查：需要 roles:manage 权限
+    check_permission_or_forbidden(&state, current_user.id, resources::ROLES, "manage").await?;
+
     let user_repo = UserRepo::new(state.db.clone());
     let role_repo = RoleRepo::new(state.db);
 
@@ -287,8 +304,12 @@ pub async fn assign_role(
 /// 移除用户角色（使用角色名称）
 pub async fn remove_role(
     State(state): State<AppState>,
+    AuthUser(current_user): AuthUser,
     Path((id, role_name)): Path<(Uuid, String)>,
 ) -> Result<StatusCode, ApiError> {
+    // 权限检查：需要 roles:manage 权限
+    check_permission_or_forbidden(&state, current_user.id, resources::ROLES, "manage").await?;
+
     let user_repo = UserRepo::new(state.db.clone());
     let role_repo = RoleRepo::new(state.db);
 
