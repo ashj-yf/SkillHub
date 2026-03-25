@@ -151,13 +151,26 @@ cd /Users/yf/Desktop/skills-hub-project && git pull
 ## 功能需求清单
 
 ### Phase 1 (MVP)
+<!-- PM 标注：已实现 (2026-03-20 by PM) -->
 - [x] 用户认证（注册/登录/JWT）
+
+<!-- PM 标注：已实现 (2026-03-21 by PM) -->
 - [x] 技能 CRUD
+
+<!-- PM 标注：已实现 (2026-03-22 by PM) -->
 - [x] 技能版本管理（Docker Tag 模式）
+
+<!-- PM 标注：已实现 (2026-03-22 by PM) -->
 - [x] CLI 基础命令（init/list/pull/search/show/tag）
+
+<!-- PM 标注：已实现 (2026-03-23 by PM) -->
 - [x] Web 技能市场
-- [ ] 权限控制（RBAC）
-- [ ] 部门管理
+
+<!-- PM 标注：已实现 (2026-03-25 by PM) -->
+- [x] 权限控制（RBAC）- 完整实现，所有 API 已集成权限检查
+
+<!-- PM 标注：已实现 (2026-03-25 by PM) -->
+- [x] 部门管理 - 后端 API 已完成
 
 ### Phase 2
 - [ ] 项目上下文感知
