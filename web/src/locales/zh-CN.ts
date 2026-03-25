@@ -110,6 +110,9 @@ export default {
     downloading: '下载中...',
     downloadSkill: '下载技能',
     downloads: '{count} 次下载',
+    downloadSuccess: '技能下载成功',
+    downloadFailed: '技能下载失败',
+    loading: '加载中...',
   },
 
   // 管理面板

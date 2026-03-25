@@ -109,6 +109,9 @@ export default {
     downloading: 'Downloading...',
     downloadSkill: 'Download Skill',
     downloads: '{count} downloads',
+    downloadSuccess: 'Skill downloaded successfully',
+    downloadFailed: 'Failed to download skill',
+    loading: 'Loading...',
   },
 
   // Admin Panel
