@@ -11,6 +11,7 @@
  * - DELETE /users/{id} - 已实现
  * - POST /users/{id}/roles - 已实现（使用角色名称，非 UUID）
  * - DELETE /users/{id}/roles/{role} - 已实现（使用角色名称，非 UUID）
+ * - GET /users/{id}/groups - 已实现（用户所属组）
  */
 import { ref, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -20,7 +21,9 @@ import {
   updateUser,
   assignRole,
   removeRole,
+  getUserGroups,
   type User,
+  type UserGroup,
 } from '@/api/users'
 import { extractErrorMessage } from '@/api/index'
 import Button from '@/design-system/elements/Button/Button.vue'
@@ -40,6 +43,11 @@ const selectedUser = ref<User | null>(null)
 const isRoleModalOpen = ref(false)
 const selectedRoleId = ref('')
 const operationLoading = ref(false)
+
+// 用户组相关状态
+const isGroupModalOpen = ref(false)
+const userGroups = ref<UserGroup[]>([])
+const groupLoading = ref(false)
 
 // Map role IDs to role names for display
 const roleIdToName = computed(() => {
@@ -135,6 +143,27 @@ async function handleRemoveRole(user: User, roleName: string) {
   } catch (e) {
     error.value = extractErrorMessage(e, 'Failed to remove role')
   }
+}
+
+// 用户组相关方法
+async function openGroupModal(user: User) {
+  selectedUser.value = user
+  isGroupModalOpen.value = true
+  groupLoading.value = true
+  userGroups.value = []
+
+  try {
+    userGroups.value = await getUserGroups(user.id)
+  } catch (e) {
+    error.value = extractErrorMessage(e, 'Failed to load user groups')
+  } finally {
+    groupLoading.value = false
+  }
+}
+
+function closeGroupModal() {
+  isGroupModalOpen.value = false
+  userGroups.value = []
 }
 
 // Lifecycle
@@ -275,13 +304,22 @@ onMounted(() => {
               </span>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-              <Button
-                :type="user.is_active ? 'danger' : 'success'"
-                size="sm"
-                @click="toggleUserStatus(user)"
-              >
-                {{ user.is_active ? t('users.disable') : t('users.enable') }}
-              </Button>
+              <div class="flex items-center justify-end gap-2">
+                <Button
+                  type="secondary"
+                  size="sm"
+                  @click="openGroupModal(user)"
+                >
+                  {{ t('users.viewGroups') }}
+                </Button>
+                <Button
+                  :type="user.is_active ? 'danger' : 'success'"
+                  size="sm"
+                  @click="toggleUserStatus(user)"
+                >
+                  {{ user.is_active ? t('users.disable') : t('users.enable') }}
+                </Button>
+              </div>
             </td>
           </tr>
         </tbody>
@@ -336,6 +374,53 @@ onMounted(() => {
             @click="handleAssignRole"
           >
             {{ t('users.assign') }}
+          </Button>
+        </div>
+      </div>
+    </div>
+
+    <!-- User Groups Modal -->
+    <div
+      v-if="isGroupModalOpen"
+      class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+    >
+      <div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+        <h2 class="text-lg font-semibold text-neutral-800 mb-4">
+          {{ t('users.userGroups') }} - {{ selectedUser?.username }}
+        </h2>
+
+        <div v-if="groupLoading" class="text-center py-8">
+          <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-brand-500 mx-auto"></div>
+        </div>
+
+        <div v-else-if="userGroups.length === 0" class="text-center py-8 text-neutral-500">
+          {{ t('users.noGroups') }}
+        </div>
+
+        <div v-else class="space-y-3">
+          <div
+            v-for="group in userGroups"
+            :key="group.id"
+            class="flex items-center justify-between p-3 bg-neutral-50 rounded-lg"
+          >
+            <div>
+              <div class="font-medium text-neutral-800">{{ group.name }}</div>
+              <div v-if="group.description" class="text-sm text-neutral-500">
+                {{ group.description }}
+              </div>
+            </div>
+            <span
+              v-if="group.is_primary"
+              class="px-2 py-1 text-xs font-medium bg-brand-100 text-brand-700 rounded"
+            >
+              {{ t('users.primaryGroup') }}
+            </span>
+          </div>
+        </div>
+
+        <div class="flex justify-end mt-6">
+          <Button type="secondary" @click="closeGroupModal">
+            {{ t('common.close') }}
           </Button>
         </div>
       </div>

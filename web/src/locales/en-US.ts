@@ -112,6 +112,16 @@ export default {
     downloadSuccess: 'Skill downloaded successfully',
     downloadFailed: 'Failed to download skill',
     loading: 'Loading...',
+    viewManifest: 'View Manifest',
+    manifestTitle: 'Skill Manifest',
+    manifestLoadFailed: 'Failed to load manifest',
+    manifestName: 'Name',
+    manifestVersion: 'Version',
+    manifestAuthor: 'Author',
+    manifestVisibility: 'Visibility',
+    manifestTags: 'Tags',
+    manifestDependencies: 'Dependencies',
+    manifestFiles: 'Files',
   },
 
   // Admin Panel
@@ -155,6 +165,10 @@ export default {
     assign: 'Assign',
     failedToAssign: 'Failed to assign role',
     failedToRemove: 'Failed to remove role',
+    viewGroups: 'View Groups',
+    userGroups: 'User Groups',
+    noGroups: 'This user is not in any group',
+    primaryGroup: 'Primary',
   },
 
   // Group Management

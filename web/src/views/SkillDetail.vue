@@ -2,7 +2,17 @@
 import { ref, onMounted, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { getSkill, getSkillTags, getSkillByVersion, downloadSkill, type Skill, type SkillTag, type SkillDetailByVersion } from '@/api/skills'
+import {
+  getSkill,
+  getSkillTags,
+  getSkillByVersion,
+  getSkillManifest,
+  downloadSkill,
+  type Skill,
+  type SkillTag,
+  type SkillDetailByVersion,
+  type SkillManifest,
+} from '@/api/skills'
 import { extractErrorMessage } from '@/api/index'
 import { useToastStore } from '@/stores/toast'
 import AppLayout from '@/design-system/layouts/AppLayout.vue'
@@ -17,11 +27,14 @@ const skill = ref<Skill | null>(null)
 const tags = ref<SkillTag[]>([])
 const selectedTag = ref<string>('')
 const versionDetail = ref<SkillDetailByVersion | null>(null)
+const manifest = ref<SkillManifest | null>(null)
 const loading = ref(true)
 const loadingTags = ref(false)
 const loadingVersion = ref(false)
+const loadingManifest = ref(false)
 const downloading = ref(false)
 const error = ref('')
+const showManifestModal = ref(false)
 
 const defaultTag = computed(() => {
   if (tags.value.length > 0) {
@@ -124,6 +137,29 @@ function handleRetry() {
   loadSkill()
 }
 
+// Manifest 相关
+async function handleShowManifest() {
+  if (!skill.value) return
+
+  showManifestModal.value = true
+  loadingManifest.value = true
+  manifest.value = null
+
+  try {
+    manifest.value = await getSkillManifest(skill.value.slug)
+  } catch (e) {
+    const errorMsg = extractErrorMessage(e, t('skill.manifestLoadFailed'))
+    toast.error(errorMsg)
+    showManifestModal.value = false
+  } finally {
+    loadingManifest.value = false
+  }
+}
+
+function closeManifestModal() {
+  showManifestModal.value = false
+}
+
 function formatDate(dateStr: string): string {
   if (!dateStr) return ''
   try {
@@ -137,6 +173,12 @@ function formatDate(dateStr: string): string {
   } catch {
     return dateStr
   }
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
 // 监听路由参数变化
@@ -289,6 +331,9 @@ onMounted(() => {
           <div class="mt-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-sm text-neutral-500 border-t border-neutral-200 pt-6">
             <span>{{ t('skill.downloads', { count: skill.download_count }) }}</span>
             <div class="flex gap-3">
+              <Button type="secondary" @click="handleShowManifest">
+                {{ t('skill.viewManifest') }}
+              </Button>
               <Button type="secondary" @click="router.push('/')">
                 {{ t('skill.backToList') }}
               </Button>
@@ -304,6 +349,95 @@ onMounted(() => {
           </div>
         </div>
       </template>
+    </div>
+
+    <!-- Manifest Modal -->
+    <div
+      v-if="showManifestModal"
+      class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+    >
+      <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+        <div class="p-6 border-b border-neutral-200">
+          <h2 class="text-lg font-semibold text-neutral-800">{{ t('skill.manifestTitle') }}</h2>
+          <p class="text-sm text-neutral-500 mt-1">{{ skill?.slug }}</p>
+        </div>
+
+        <div class="p-6 overflow-y-auto flex-1">
+          <div v-if="loadingManifest" class="text-center py-8">
+            <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-brand-500 mx-auto"></div>
+          </div>
+
+          <div v-else-if="manifest" class="space-y-4">
+            <!-- 基本信息 -->
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <span class="text-sm text-neutral-500">{{ t('skill.manifestName') }}</span>
+                <p class="font-medium">{{ manifest.name }}</p>
+              </div>
+              <div>
+                <span class="text-sm text-neutral-500">{{ t('skill.manifestVersion') }}</span>
+                <p class="font-medium">{{ manifest.version }}</p>
+              </div>
+              <div>
+                <span class="text-sm text-neutral-500">{{ t('skill.manifestAuthor') }}</span>
+                <p class="font-medium">{{ manifest.author || '-' }}</p>
+              </div>
+              <div>
+                <span class="text-sm text-neutral-500">{{ t('skill.manifestVisibility') }}</span>
+                <p class="font-medium">{{ manifest.visibility }}</p>
+              </div>
+            </div>
+
+            <!-- 标签 -->
+            <div>
+              <span class="text-sm text-neutral-500">{{ t('skill.manifestTags') }}</span>
+              <div class="flex flex-wrap gap-1 mt-1">
+                <span
+                  v-for="tag in manifest.tags"
+                  :key="tag"
+                  class="px-2 py-1 bg-neutral-100 text-neutral-600 text-sm rounded"
+                >
+                  {{ tag }}
+                </span>
+              </div>
+            </div>
+
+            <!-- 继承/组合 -->
+            <div v-if="manifest.extends || manifest.composes.length > 0">
+              <span class="text-sm text-neutral-500">{{ t('skill.manifestDependencies') }}</span>
+              <div class="mt-1 space-y-1">
+                <p v-if="manifest.extends" class="text-sm">
+                  <span class="text-neutral-400">extends:</span> {{ manifest.extends }}
+                </p>
+                <p v-if="manifest.composes.length > 0" class="text-sm">
+                  <span class="text-neutral-400">composes:</span> {{ manifest.composes.join(', ') }}
+                </p>
+              </div>
+            </div>
+
+            <!-- 文件列表 -->
+            <div v-if="manifest.files && manifest.files.length > 0">
+              <span class="text-sm text-neutral-500">{{ t('skill.manifestFiles') }}</span>
+              <div class="mt-2 space-y-1">
+                <div
+                  v-for="file in manifest.files"
+                  :key="file.name"
+                  class="flex items-center justify-between text-sm bg-neutral-50 p-2 rounded"
+                >
+                  <span class="font-mono">{{ file.name }}</span>
+                  <span class="text-neutral-400">{{ formatFileSize(file.size) }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-4 border-t border-neutral-200 flex justify-end">
+          <Button type="secondary" @click="closeManifestModal">
+            {{ t('common.close') }}
+          </Button>
+        </div>
+      </div>
     </div>
   </AppLayout>
 </template>

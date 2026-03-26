@@ -51,7 +51,6 @@ const formData = ref<CreateRoleRequest>({
   description: '',
   permissions: [],
 })
-const newPermission = ref('')
 
 // 按资源分组的权限
 const permissionsByResource = computed(() => {
@@ -108,17 +107,6 @@ function openEditModal(role: Role) {
 function closeModal() {
   isModalOpen.value = false
   editingRole.value = null
-}
-
-function addPermission() {
-  if (newPermission.value && !formData.value.permissions.includes(newPermission.value)) {
-    formData.value.permissions.push(newPermission.value)
-    newPermission.value = ''
-  }
-}
-
-function removePermission(permission: string) {
-  formData.value.permissions = formData.value.permissions.filter((p) => p !== permission)
 }
 
 async function handleSubmit() {
@@ -273,41 +261,45 @@ onMounted(() => {
           />
 
           <div>
-            <label class="block text-sm font-medium text-neutral-700 mb-1">
+            <label class="block text-sm font-medium text-neutral-700 mb-2">
               {{ t('roles.permissions') }}
             </label>
-            <div class="flex gap-2 mb-2">
-              <select
-                v-model="newPermission"
-                class="flex-1 px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+            <!-- 权限分组选择器 -->
+            <div class="max-h-64 overflow-y-auto border border-neutral-200 rounded-lg p-3 space-y-4">
+              <div
+                v-for="(perms, resource) in permissionsByResource"
+                :key="resource"
+                class="space-y-2"
               >
-                <option value="">{{ t('roles.selectPermission') }}</option>
-                <optgroup
-                  v-for="(perms, resource) in permissionsByResource"
-                  :key="resource"
-                  :label="resource"
-                >
-                  <option
-                    v-for="perm in perms.filter((p) => !formData.permissions.includes(p.name))"
+                <h5 class="text-sm font-semibold text-neutral-600 uppercase tracking-wide">
+                  {{ resource }}
+                </h5>
+                <div class="grid grid-cols-2 gap-2 pl-2">
+                  <label
+                    v-for="perm in perms"
                     :key="perm.id"
-                    :value="perm.name"
+                    class="flex items-center gap-2 text-sm text-neutral-700 cursor-pointer hover:bg-neutral-50 p-1 rounded"
                   >
-                    {{ perm.name }} - {{ perm.description || perm.action }}
-                  </option>
-                </optgroup>
-              </select>
-              <Button type="secondary" size="sm" @click="addPermission">{{ t('roles.add') }}</Button>
+                    <input
+                      type="checkbox"
+                      :value="perm.name"
+                      v-model="formData.permissions"
+                      class="w-4 h-4 text-brand-500 border-neutral-300 rounded focus:ring-brand-500"
+                    />
+                    <span class="flex-1">
+                      <span class="font-medium">{{ perm.action }}</span>
+                      <span v-if="perm.description" class="text-neutral-400 text-xs ml-1">
+                        ({{ perm.description }})
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              </div>
             </div>
-            <div v-if="formData.permissions.length > 0" class="flex flex-wrap gap-1">
-              <Tag
-                v-for="permission in formData.permissions"
-                :key="permission"
-                closable
-                @close="removePermission(permission)"
-              >
-                {{ permission }}
-              </Tag>
-            </div>
+            <!-- 已选权限数量提示 -->
+            <p class="text-xs text-neutral-400 mt-2">
+              已选择 {{ formData.permissions.length }} 个权限
+            </p>
           </div>
         </div>
 

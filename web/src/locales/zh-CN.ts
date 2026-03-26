@@ -113,6 +113,16 @@ export default {
     downloadSuccess: '技能下载成功',
     downloadFailed: '技能下载失败',
     loading: '加载中...',
+    viewManifest: '查看 Manifest',
+    manifestTitle: '技能 Manifest',
+    manifestLoadFailed: '加载 Manifest 失败',
+    manifestName: '名称',
+    manifestVersion: '版本',
+    manifestAuthor: '作者',
+    manifestVisibility: '可见性',
+    manifestTags: '标签',
+    manifestDependencies: '依赖',
+    manifestFiles: '文件',
   },
 
   // 管理面板
@@ -156,6 +166,10 @@ export default {
     assign: '分配',
     failedToAssign: '分配角色失败',
     failedToRemove: '移除角色失败',
+    viewGroups: '查看组',
+    userGroups: '用户所属组',
+    noGroups: '该用户暂未加入任何组',
+    primaryGroup: '主组',
   },
 
   // 组织管理
