@@ -15,14 +15,16 @@
  * - DELETE /roles/{id}/permissions/{permission_id} - 已实现
  * - GET /permissions - 已实现
  */
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   listRoles,
+  listPermissions,
   createRole,
   updateRole,
   deleteRole,
   type Role,
+  type Permission,
   type CreateRoleRequest,
 } from '@/api/roles'
 import { extractErrorMessage } from '@/api/index'
@@ -35,6 +37,7 @@ const { t } = useI18n()
 
 // State
 const roles = ref<Role[]>([])
+const permissions = ref<Permission[]>([])
 const loading = ref(true)
 const error = ref('')
 const isModalOpen = ref(false)
@@ -50,29 +53,29 @@ const formData = ref<CreateRoleRequest>({
 })
 const newPermission = ref('')
 
-// Available permissions (would come from backend in real app)
-const availablePermissions = [
-  'skills:read',
-  'skills:write',
-  'skills:delete',
-  'users:read',
-  'users:write',
-  'users:delete',
-  'groups:read',
-  'groups:write',
-  'groups:delete',
-  'roles:read',
-  'roles:write',
-  'roles:delete',
-  'admin',
-]
+// 按资源分组的权限
+const permissionsByResource = computed(() => {
+  const grouped: Record<string, Permission[]> = {}
+  for (const perm of permissions.value) {
+    if (!grouped[perm.resource]) {
+      grouped[perm.resource] = []
+    }
+    grouped[perm.resource].push(perm)
+  }
+  return grouped
+})
 
 // Methods
 async function loadRoles() {
   loading.value = true
   error.value = ''
   try {
-    roles.value = await listRoles()
+    const [rolesData, permissionsData] = await Promise.all([
+      listRoles(),
+      listPermissions(),
+    ])
+    roles.value = rolesData
+    permissions.value = permissionsData
   } catch (e) {
     error.value = extractErrorMessage(e, 'Failed to load roles')
   } finally {
@@ -279,13 +282,19 @@ onMounted(() => {
                 class="flex-1 px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
               >
                 <option value="">{{ t('roles.selectPermission') }}</option>
-                <option
-                  v-for="perm in availablePermissions.filter((p) => !formData.permissions.includes(p))"
-                  :key="perm"
-                  :value="perm"
+                <optgroup
+                  v-for="(perms, resource) in permissionsByResource"
+                  :key="resource"
+                  :label="resource"
                 >
-                  {{ perm }}
-                </option>
+                  <option
+                    v-for="perm in perms.filter((p) => !formData.permissions.includes(p.name))"
+                    :key="perm.id"
+                    :value="perm.name"
+                  >
+                    {{ perm.name }} - {{ perm.description || perm.action }}
+                  </option>
+                </optgroup>
               </select>
               <Button type="secondary" size="sm" @click="addPermission">{{ t('roles.add') }}</Button>
             </div>

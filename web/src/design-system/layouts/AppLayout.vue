@@ -45,9 +45,6 @@ const currentUser = computed(() => userStore.user)
 const isLoggedIn = computed(() => userStore.isLoggedIn)
 const isAdmin = computed(() => userStore.isAdmin)
 
-// 是否显示用户信息（已登录且用户信息已加载）
-const showUserInfo = computed(() => isLoggedIn.value && (currentUser.value || !isUserLoading.value))
-
 // 计算主内容区域类名
 const mainClasses = computed(() => {
   const classes = ['flex-1', 'min-h-screen', 'transition-all', 'duration-300']
