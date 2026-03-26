@@ -106,8 +106,25 @@ pub async fn change_password(
     if payload.new_password.is_empty() {
         return Err(ApiError::BadRequest("请输入新密码".into()));
     }
+    if payload.new_password.len() < 8 {
+        return Err(ApiError::BadRequest("新密码长度至少为 8 位".into()));
+    }
 
-    service.change_password(user.id, &payload.old_password, &payload.new_password).await?;
+    // 调用服务并处理错误
+    service.change_password(user.id, &payload.old_password, &payload.new_password)
+        .await
+        .map_err(|e| {
+            let msg = e.to_string();
+            if msg.contains("当前密码错误") {
+                ApiError::Unauthorized
+            } else if msg.contains("账户已被禁用") {
+                ApiError::Forbidden
+            } else if msg.contains("新密码") || msg.contains("密码") {
+                ApiError::BadRequest(msg)
+            } else {
+                ApiError::InternalServerError
+            }
+        })?;
 
     Ok(StatusCode::NO_CONTENT)
 }
