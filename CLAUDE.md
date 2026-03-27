@@ -156,6 +156,7 @@ visibility: company             # public / company / department / private
 - **禁止重复发布**：同一提交不应创建多个 tag
 - **版本号递增**：新版本必须大于当前最大版本号
 - **tag 格式**：必须以 `v` 开头，如 `v0.1.0`
+- **禁止测试创建 tag**：测试场景下禁止创建 tag，除非明确要求
 
 ## 需求文档目录
 
