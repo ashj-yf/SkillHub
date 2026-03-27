@@ -93,12 +93,38 @@ async fn main() -> anyhow::Result<()> {
         }
     };
 
-    // 配置 CORS（从环境变量读取允许的来源）
-    let allowed_origins: Vec<String> = std::env::var("CORS_ORIGINS")
-        .unwrap_or_else(|_| "http://localhost:5173,http://localhost:3000".into())
-        .split(',')
-        .map(|s| s.trim().to_string())
-        .collect();
+    // 配置 CORS
+    // 开发模式 (RUN_MODE=dev): 允许所有来源
+    // 生产模式 (RUN_MODE=prod): 使用白名单
+    let run_mode = std::env::var("RUN_MODE").unwrap_or_else(|_| "dev".into());
+    let is_dev_mode = run_mode == "dev";
+
+    let cors_layer = if is_dev_mode {
+        tracing::info!("CORS: 开发模式，允许所有来源");
+        CorsLayer::new()
+            .allow_origin(tower_http::cors::Any)
+            .allow_methods(tower_http::cors::Any)
+            .allow_headers(tower_http::cors::Any)
+    } else {
+        let allowed_origins: Vec<String> = std::env::var("CORS_ORIGINS")
+            .unwrap_or_else(|_| "http://localhost:5173,http://localhost:3000".into())
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .collect();
+        tracing::info!(
+            origins = ?allowed_origins,
+            "CORS: 生产模式，使用白名单"
+        );
+        CorsLayer::new()
+            .allow_origin(AllowOrigin::predicate(move |origin, _| {
+                origin
+                    .to_str()
+                    .map(|o| allowed_origins.contains(&o.to_string()))
+                    .unwrap_or(false)
+            }))
+            .allow_methods([axum::http::Method::GET, axum::http::Method::POST, axum::http::Method::PUT, axum::http::Method::DELETE])
+            .allow_headers([axum::http::header::AUTHORIZATION, axum::http::header::CONTENT_TYPE])
+    };
 
     // 构建应用状态
     let state = AppState {
@@ -111,17 +137,7 @@ async fn main() -> anyhow::Result<()> {
     // 构建路由
     let app = Router::new()
         .nest("/api", api::routes())
-        .layer(
-            CorsLayer::new()
-                .allow_origin(AllowOrigin::predicate(move |origin, _| {
-                    origin
-                        .to_str()
-                        .map(|o| allowed_origins.contains(&o.to_string()))
-                        .unwrap_or(false)
-                }))
-                .allow_methods([axum::http::Method::GET, axum::http::Method::POST, axum::http::Method::PUT, axum::http::Method::DELETE])
-                .allow_headers([axum::http::header::AUTHORIZATION, axum::http::header::CONTENT_TYPE])
-        )
+        .layer(cors_layer)
         .with_state(state);
 
     // 启动服务器

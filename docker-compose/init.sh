@@ -105,7 +105,8 @@ MINIO_PORT=${MINIO_PORT}
 MINIO_CONSOLE_PORT=${MINIO_CONSOLE_PORT}
 
 # ==================== CORS 配置 ====================
-CORS_ALLOWED_ORIGINS=${CORS_ORIGINS}
+# 仅生产模式使用，开发模式自动允许所有来源
+CORS_ORIGINS=${CORS_ORIGINS}
 
 # ==================== 管理员账号 ====================
 ADMIN_USERNAME=${ADMIN_USERNAME}
