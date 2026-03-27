@@ -56,9 +56,10 @@ else
     echo "Warning: Migrations directory not found or DATABASE_URL not set, skipping migrations"
 fi
 
-# 启动后端服务（后台运行）
+# 启动后端服务（后台运行，监听内部端口 3000）
 echo "Starting backend service..."
-./skillhub-backend &
+BACKEND_PORT=${BACKEND_PORT:-3000}
+SERVER_PORT=$BACKEND_PORT ./skillhub-backend &
 BACKEND_PID=$!
 
 # 等待后端启动
