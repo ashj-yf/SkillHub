@@ -31,7 +31,7 @@ RUN npm run build
 # ====================
 # 阶段 2: 后端构建
 # ====================
-FROM rust:1.94-alpine AS backend-builder
+FROM rustlang/rust:nightly-alpine AS backend-builder
 
 # 配置 Alpine 阿里云镜像
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
