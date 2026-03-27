@@ -71,13 +71,16 @@ FROM alpine:3.19
 # 配置 Alpine 阿里云镜像
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 
-# 安装运行时依赖
-RUN apk add --no-cache ca-certificates tzdata nginx
+# 安装运行时依赖（添加 postgresql-client 用于执行迁移）
+RUN apk add --no-cache ca-certificates tzdata nginx postgresql-client
 
 WORKDIR /app
 
 # 复制后端可执行文件
 COPY --from=backend-builder /app/target/debug/skillhub-backend /app/
+
+# 复制数据库迁移文件
+COPY backend/migrations /app/migrations
 
 # 复制前端静态文件
 COPY --from=frontend-builder /app/web/dist /app/static

@@ -1,5 +1,5 @@
 -- 技能表
-CREATE TABLE skills (
+CREATE TABLE IF NOT EXISTS skills (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(100) NOT NULL,
     slug VARCHAR(100) UNIQUE NOT NULL,
@@ -15,7 +15,7 @@ CREATE TABLE skills (
 );
 
 -- 技能版本表（Docker Tag 模式）
-CREATE TABLE skill_versions (
+CREATE TABLE IF NOT EXISTS skill_versions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     skill_id UUID REFERENCES skills(id) ON DELETE CASCADE,
     version VARCHAR(50) NOT NULL,       -- v1.0.0, v2.1.0-beta.1
@@ -29,7 +29,7 @@ CREATE TABLE skill_versions (
 );
 
 -- 技能标签表（类似 Docker Tag）
-CREATE TABLE skill_tags (
+CREATE TABLE IF NOT EXISTS skill_tags (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     skill_id UUID REFERENCES skills(id) ON DELETE CASCADE,
     tag VARCHAR(50) NOT NULL,           -- latest, stable, v1, v1.0.0
@@ -39,17 +39,18 @@ CREATE TABLE skill_tags (
     UNIQUE(skill_id, tag)
 );
 
--- 索引
-CREATE INDEX idx_skills_slug ON skills(slug);
-CREATE INDEX idx_skills_name ON skills(name);
-CREATE INDEX idx_skills_author ON skills(author_id);
-CREATE INDEX idx_skills_tags ON skills USING GIN(tags);
-CREATE INDEX idx_skills_created_at ON skills(created_at DESC);
-CREATE INDEX idx_skill_versions_skill_id ON skill_versions(skill_id);
-CREATE INDEX idx_skill_tags_skill ON skill_tags(skill_id);
-CREATE INDEX idx_skill_tags_version ON skill_tags(version_id);
+-- 索引（幂等创建）
+CREATE INDEX IF NOT EXISTS idx_skills_slug ON skills(slug);
+CREATE INDEX IF NOT EXISTS idx_skills_name ON skills(name);
+CREATE INDEX IF NOT EXISTS idx_skills_author ON skills(author_id);
+CREATE INDEX IF NOT EXISTS idx_skills_tags ON skills USING GIN(tags);
+CREATE INDEX IF NOT EXISTS idx_skills_created_at ON skills(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_skill_versions_skill_id ON skill_versions(skill_id);
+CREATE INDEX IF NOT EXISTS idx_skill_tags_skill ON skill_tags(skill_id);
+CREATE INDEX IF NOT EXISTS idx_skill_tags_version ON skill_tags(version_id);
 
 -- updated_at 触发器
+DROP TRIGGER IF EXISTS skills_updated_at ON skills;
 CREATE TRIGGER skills_updated_at
     BEFORE UPDATE ON skills
     FOR EACH ROW
