@@ -1,6 +1,12 @@
 # 构建阶段
 FROM node:20-alpine AS builder
 
+# 配置 Alpine 阿里云镜像
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
+
+# 配置 npm 淘宝镜像
+RUN npm config set registry https://registry.npmmirror.com
+
 WORKDIR /app
 
 # 复制依赖文件
@@ -17,6 +23,9 @@ RUN npm run build
 
 # 运行阶段
 FROM nginx:alpine
+
+# 配置 Alpine 阿里云镜像
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 
 # 复制构建产物
 COPY --from=builder /app/dist /usr/share/nginx/html
