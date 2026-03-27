@@ -1,40 +1,35 @@
 # Skills Hub 生产环境部署配置
 # 包含完整服务栈：skillhub + postgres + redis + minio
-# 环境变量已内置，可直接部署
-# 使用方式: docker compose up -d
+# 环境变量通过 .env 文件加载
+# 使用方式: ./init.sh && docker compose up -d
 
 services:
   skillhub:
     image: swr.cn-north-4.myhuaweicloud.com/skillhub/skillhub:latest
     container_name: skills-hub
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
       # 服务配置
       - SERVER_HOST=0.0.0.0
-      - SERVER_PORT=8080
       - RUN_MODE=prod
       - RUST_LOG=info
       # 数据库配置
-      - DATABASE_URL=postgres://skillhub:${POSTGRES_PASSWORD:-skillhub123}@postgres:5432/skillhub
+      - DATABASE_URL=postgres://skillhub:${POSTGRES_PASSWORD}@postgres:5432/skillhub
       # Redis 配置
       - REDIS_URL=redis://redis:6379
       # JWT 配置
-      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
       - JWT_EXPIRATION=86400
       # 存储配置
       - STORAGE_TYPE=minio
       - MINIO_ENDPOINT=minio:9000
-      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
-      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
       - MINIO_BUCKET=skillhub
       - MINIO_USE_SSL=false
       # CORS 配置
-      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
       - CORS_ALLOWED_METHODS=GET,POST,PUT,DELETE,OPTIONS
       - CORS_ALLOWED_HEADERS=Content-Type,Authorization
       # 其他配置
-      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
       - MAX_UPLOAD_SIZE=100
     ports:
       - "${SERVER_PORT:-8080}:8080"
@@ -69,9 +64,10 @@ services:
     image: postgres:15-alpine
     container_name: skills-hub-postgres
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
       - POSTGRES_USER=skillhub
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-skillhub123}
       - POSTGRES_DB=skillhub
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -108,9 +104,11 @@ services:
     image: minio/minio:latest
     container_name: skills-hub-minio
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
-      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY:-minioadmin}
-      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY:-minioadmin}
+      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY}
+      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY}
     command: server /data --console-address ":9001"
     volumes:
       - minio_data:/data
