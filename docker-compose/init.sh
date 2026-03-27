@@ -61,7 +61,12 @@ read -p "服务端口 [8080]: " SERVER_PORT
 SERVER_PORT=${SERVER_PORT:-8080}
 
 # CORS 允许的源
-read -p "CORS 允许的源 (多个用逗号分隔) [http://localhost:3000,http://localhost:5173]: " CORS_ORIGINS
+echo ""
+echo -e "${BLUE}CORS 允许的源配置:${NC}"
+echo "支持格式: 域名 (https://example.com) 或 IP:端口 (http://192.168.1.100:3000)"
+echo "多个源用逗号分隔，直接回车使用默认值"
+echo ""
+read -p "CORS 允许的源 [http://localhost:3000,http://localhost:5173]: " CORS_ORIGINS
 CORS_ORIGINS=${CORS_ORIGINS:-"http://localhost:3000,http://localhost:5173"}
 
 # 管理员用户名
