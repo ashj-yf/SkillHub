@@ -89,8 +89,8 @@ COPY docker/nginx.conf /etc/nginx/http.d/default.conf
 COPY docker/start.sh /app/start.sh
 RUN chmod +x /app/start.sh
 
-# 暴露端口
-EXPOSE 80
+# 暴露端口（禁止使用 80，使用自定义端口）
+EXPOSE 8080
 
 # 启动
 CMD ["./start.sh"]
