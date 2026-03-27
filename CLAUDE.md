@@ -134,6 +134,29 @@ visibility: company             # public / company / department / private
 - `skill-slug:v1.0.0` - 指定版本
 - `skill-slug:v1` - 自动匹配 v1.x.x 最新
 
+## 项目版本号规范
+
+采用语义化版本 (SemVer)：`vMAJOR.MINOR.PATCH`
+
+| 类型 | 说明 | 示例 |
+|------|------|------|
+| MAJOR | 不兼容的 API 变更 | v1.0.0 → v2.0.0 |
+| MINOR | 向后兼容的功能新增 | v0.1.0 → v0.2.0 |
+| PATCH | 向后兼容的问题修复 | v0.1.0 → v0.1.1 |
+
+### 发布流程
+
+1. **确认当前版本**：`git tag -l | sort -V | tail -1`
+2. **确定新版本号**：根据变更类型递增
+3. **创建并推送 tag**：`git tag v0.x.x && git push origin v0.x.x`
+4. **自动构建**：GitHub Action 自动构建并推送镜像
+
+### 注意事项
+
+- **禁止重复发布**：同一提交不应创建多个 tag
+- **版本号递增**：新版本必须大于当前最大版本号
+- **tag 格式**：必须以 `v` 开头，如 `v0.1.0`
+
 ## 需求文档目录
 
 `docs/requirements/` 是软连接到本地独立仓库，不推送到 GitHub。
