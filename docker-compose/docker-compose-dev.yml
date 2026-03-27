@@ -1,20 +1,40 @@
 # Skills Hub 开发测试环境配置
 # 仅包含 skillhub 服务，连接外部数据库
-# 环境变量通过 .env 文件加载
-# 使用方式: docker compose -f docker-compose-dev.yml --env-file .env up -d
+# 环境变量通过 --env-file 参数加载
+# 使用方式: docker compose -f docker-compose-dev.yml --env-file .env-local up -d
 
 services:
   skillhub:
     image: swr.cn-north-4.myhuaweicloud.com/skillhub/skillhub:${IMAGE_TAG:-dev-latest}
     container_name: skills-hub-dev
     restart: unless-stopped
-    env_file:
-      - .env
     ports:
       - "${SERVER_PORT:-8080}:8080"
     environment:
-      - RUST_LOG=${RUST_LOG:-debug}
+      # 服务配置
+      - SERVER_HOST=${SERVER_HOST:-0.0.0.0}
+      - SERVER_PORT=${SERVER_PORT:-8080}
       - RUN_MODE=${RUN_MODE:-dev}
+      - RUST_LOG=${RUST_LOG:-debug}
+      # 数据库配置
+      - DATABASE_URL=${DATABASE_URL}
+      - MAX_DB_CONNECTIONS=${MAX_DB_CONNECTIONS:-5}
+      # Redis 配置
+      - REDIS_URL=${REDIS_URL}
+      # JWT 配置
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRATION_HOURS=${JWT_EXPIRATION_HOURS:-24}
+      # 存储配置
+      - STORAGE_TYPE=${STORAGE_TYPE:-minio}
+      - STORAGE_ENDPOINT=${STORAGE_ENDPOINT}
+      - STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY}
+      - STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}
+      - STORAGE_BUCKET=${STORAGE_BUCKET:-skillhub}
+      # CORS 配置
+      - CORS_ORIGINS=${CORS_ORIGINS}
+      # 管理员账号
+      - ADMIN_USERNAME=${ADMIN_USERNAME}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/health"]
       interval: 30s

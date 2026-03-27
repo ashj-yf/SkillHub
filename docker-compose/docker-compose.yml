@@ -23,9 +23,10 @@ services:
       - JWT_EXPIRATION=86400
       # 存储配置
       - STORAGE_TYPE=minio
-      - MINIO_ENDPOINT=minio:9000
-      - MINIO_BUCKET=skillhub
-      - MINIO_USE_SSL=false
+      - STORAGE_ENDPOINT=http://minio:9000
+      - STORAGE_ACCESS_KEY=${MINIO_ACCESS_KEY}
+      - STORAGE_SECRET_KEY=${MINIO_SECRET_KEY}
+      - STORAGE_BUCKET=skillhub
       # CORS 配置 (生产模式使用 CORS_ORIGINS 白名单)
       # 其他配置
       - MAX_UPLOAD_SIZE=100

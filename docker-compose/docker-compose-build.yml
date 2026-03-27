@@ -1,7 +1,7 @@
 # Skills Hub 本地构建测试配置
 # 从 Dockerfile 本地构建镜像
-# 环境变量通过 .env 文件加载
-# 使用方式: docker compose -f docker-compose-build.yml --env-file .env up -d --build
+# 环境变量通过 --env-file 参数加载
+# 使用方式: docker compose -f docker-compose-build.yml --env-file .env-local up -d --build
 
 services:
   skillhub:
@@ -11,13 +11,33 @@ services:
     image: skillhub:local
     container_name: skills-hub-build
     restart: unless-stopped
-    env_file:
-      - .env
     ports:
       - "${SERVER_PORT:-8080}:8080"
     environment:
-      - RUST_LOG=${RUST_LOG:-debug}
+      # 服务配置
+      - SERVER_HOST=${SERVER_HOST:-0.0.0.0}
+      - SERVER_PORT=${SERVER_PORT:-8080}
       - RUN_MODE=${RUN_MODE:-dev}
+      - RUST_LOG=${RUST_LOG:-debug}
+      # 数据库配置
+      - DATABASE_URL=${DATABASE_URL}
+      - MAX_DB_CONNECTIONS=${MAX_DB_CONNECTIONS:-5}
+      # Redis 配置
+      - REDIS_URL=${REDIS_URL}
+      # JWT 配置
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRATION_HOURS=${JWT_EXPIRATION_HOURS:-24}
+      # 存储配置
+      - STORAGE_TYPE=${STORAGE_TYPE:-minio}
+      - STORAGE_ENDPOINT=${STORAGE_ENDPOINT}
+      - STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY}
+      - STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}
+      - STORAGE_BUCKET=${STORAGE_BUCKET:-skillhub}
+      # CORS 配置
+      - CORS_ORIGINS=${CORS_ORIGINS}
+      # 管理员账号
+      - ADMIN_USERNAME=${ADMIN_USERNAME}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/health"]
       interval: 30s
