@@ -57,7 +57,7 @@ function openUploadModal(skill: Skill) {
   showUploadModal.value = true
 }
 
-function handleUploadSuccess(version: SkillVersion) {
+function handleUploadSuccess(_version: SkillVersion) {
   showUploadModal.value = false
   // 刷新列表
   loadMySkills()
