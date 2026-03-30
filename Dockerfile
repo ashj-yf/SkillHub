@@ -71,7 +71,7 @@ FROM rustlang/rust:nightly-alpine AS cli-builder
 # 配置 Alpine 阿里云镜像
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 
-RUN apk add --no-cache musl-dev
+RUN apk add --no-cache musl-dev openssl-dev openssl-libs-static
 
 WORKDIR /app
 

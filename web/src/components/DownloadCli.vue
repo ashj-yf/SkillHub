@@ -5,8 +5,8 @@
  * CLI 下载弹窗组件
  */
 import { ref, computed, onMounted } from 'vue'
-import { useI18n } from 'vue-i18n'
-import { getCliVersion, type CliVersionResponse, type CliDownload } from '@/api/cli'
+import { getCliVersion } from '@/api/cli'
+import type { CliVersionResponse, CliDownload } from '@/types/cli'
 import { extractErrorMessage } from '@/api/index'
 import Button from '@/design-system/elements/Button/Button.vue'
 
@@ -17,8 +17,6 @@ const props = defineProps<{
 const emit = defineEmits<{
   close: []
 }>()
-
-const { t } = useI18n()
 
 // 状态
 const cliVersion = ref<CliVersionResponse | null>(null)
