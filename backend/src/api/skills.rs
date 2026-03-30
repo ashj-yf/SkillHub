@@ -15,8 +15,10 @@ use crate::middleware::permission::{
 use crate::models::skill::{CreateSkill, CreateSkillTag, CreateSkillVersion, Skill, SkillTag, SkillTagResponse, SkillVersion, UpdateSkill, SkillManifest};
 use crate::repos::skill::SkillRepo;
 use crate::services::skill::SkillService;
+use crate::services::validator::SkillValidator;
 use crate::state::AppState;
 use crate::utils::error::ApiError;
+use crate::utils::tar_gz::TarGzParser;
 
 /// 从 AppState 创建带缓存的 SkillService
 fn create_service(state: &AppState) -> SkillService {
@@ -392,30 +394,89 @@ pub async fn upload_version(
     }
 
     // 验证必填字段
-    let version = version.ok_or_else(|| ApiError::BadRequest("version is required".into()))?;
+    let version_str = version.ok_or_else(|| ApiError::BadRequest("version is required".into()))?;
     let file_data = file_data.ok_or_else(|| ApiError::BadRequest("file is required".into()))?;
 
     // 验证版本号格式
-    if !is_valid_version(&version) {
+    if !is_valid_version(&version_str) {
         return Err(ApiError::BadRequest("Invalid version format, should be like v1.0.0".into()));
     }
 
-    // 验证文件类型（可选：检查 .tar.gz 扩展名）
+    // 验证文件扩展名
     if let Some(ref fname) = filename {
-        if !fname.ends_with(".tar.gz") && !fname.ends_with(".md") && !fname.ends_with(".txt") {
-            tracing::warn!(filename = %fname, "File type validation: unexpected extension");
+        if !fname.ends_with(".tar.gz") {
+            return Err(ApiError::BadRequest("Only .tar.gz format is supported".into()));
         }
     }
 
-    // 将文件内容转换为字符串（对于 tar.gz 也可以存储为 base64 或直接存储二进制）
-    let content = String::from_utf8_lossy(&file_data).to_string();
+    // 验证文件大小 (10MB)
+    const MAX_FILE_SIZE: usize = 10 * 1024 * 1024;
+    if file_data.len() > MAX_FILE_SIZE {
+        return Err(ApiError::BadRequest("File size exceeds limit (max 10MB)".into()));
+    }
 
-    // 创建版本
+    // === 解析 tar.gz 结构 ===
+    let parsed = TarGzParser::parse(&file_data).map_err(|e| {
+        tracing::error!(error = %e, "Failed to parse tar.gz");
+        ApiError::BadRequest(format!("Invalid tar.gz file: {}", e))
+    })?;
+
+    // 验证 tar.gz 结构（检查必需文件）
+    TarGzParser::validate(&parsed).map_err(|e| {
+        tracing::error!(error = %e, "Tar.gz validation failed");
+        ApiError::BadRequest(format!("Tar.gz validation failed: {}", e))
+    })?;
+
+    // === 安全验证 ===
+    let validator = SkillValidator::default();
+
+    // 验证压缩比
+    let decompressed_size: usize = parsed.files.values().map(|v| v.len()).sum();
+    validator.validate_compression_ratio(file_data.len(), decompressed_size).map_err(|e| {
+        tracing::error!(error = %e, "Compression ratio check failed");
+        ApiError::BadRequest(format!("Security check failed: {}", e))
+    })?;
+
+    // 验证文件内容
+    validator.validate(&parsed.files).map_err(|e| {
+        tracing::error!(error = %e, "Content validation failed");
+        ApiError::BadRequest(format!("Content validation failed: {}", e))
+    })?;
+
+    // === 存储文件 ===
+    let storage_path = state.storage.upload_skill_content(skill.id, &version_str, &file_data).await
+        .map_err(|e| {
+            tracing::error!(error = %e, "Failed to store file");
+            ApiError::InternalServerError
+        })?;
+
+    tracing::info!(
+        skill_id = %skill.id,
+        version = %version_str,
+        storage_path = %storage_path,
+        "Skill version uploaded successfully"
+    );
+
+    // === 创建版本记录 ===
+    // 从 skill.yaml 提取元数据，如果存在
+    let content = if let Some(ref manifest) = parsed.manifest {
+        format!(
+            "# {}\n\n{}\n\nVersion: {}\nAuthor: {}\n\n---\n\nFiles: {}",
+            manifest.name,
+            manifest.description.as_deref().unwrap_or("No description"),
+            manifest.version,
+            manifest.author.as_deref().unwrap_or("Unknown"),
+            parsed.files.len()
+        )
+    } else {
+        format!("Skill version {} with {} files", version_str, parsed.files.len())
+    };
+
     let service = create_service(&state);
     let author_id = user.id;
 
     let create_version = CreateSkillVersion {
-        version,
+        version: version_str,
         content,
         changelog,
     };

@@ -23,6 +23,11 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 hyper = "1.0"
 sha2 = "0.10"
 regex = "1"
+# tar.gz 解析
+flate2 = "1.0"
+tar = "0.4"
+# YAML 解析
+serde_yaml = "0.9"
 # aws-sdk-s3 = "1"  # 暂时禁用，需要 Rust 1.91+
 # aws-config = "1"  # 暂时禁用，需要 Rust 1.91+
 redis = { version = "0.25", features = ["tokio-comp", "connection-manager"] }
