@@ -3,7 +3,19 @@ use crate::state::AppState;
 use crate::repos::cli_version::CliVersionRepo;
 use crate::utils::error::ApiError;
 
-/// CLI 版本信息响应（保留原有结构用于兼容）
+/// CLI 下载链接（数组格式，与前端类型定义一致）
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct CliDownloadItem {
+    pub platform: String,
+    pub filename: String,
+    pub url: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub size: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub checksum: Option<String>,
+}
+
+/// CLI 版本信息响应
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct CliVersionResponse {
     /// 版本号
@@ -12,21 +24,12 @@ pub struct CliVersionResponse {
     pub release_date: String,
     /// 更新日志
     pub changelog: String,
-    /// 各平台下载链接
-    pub downloads: Downloads,
+    /// 各平台下载链接（数组格式）
+    pub downloads: Vec<CliDownloadItem>,
     /// 最低支持版本
     pub min_version: String,
     /// 是否强制更新
     pub force_update: bool,
-}
-
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub struct Downloads {
-    pub linux_x86_64: String,
-    pub linux_arm64: String,
-    pub macos_x86_64: String,
-    pub macos_arm64: String,
-    pub windows_x86_64: String,
 }
 
 /// 版本列表响应
@@ -54,8 +57,17 @@ pub async fn get_version(State(state): State<AppState>) -> Result<Json<CliVersio
     // 获取下载链接
     let downloads = repo.get_downloads(version.id).await?;
 
-    // 构建下载链接映射
-    let downloads_resp = build_downloads_response(downloads);
+    // 转换为数组格式
+    let download_items: Vec<CliDownloadItem> = downloads
+        .into_iter()
+        .map(|d| CliDownloadItem {
+            platform: d.platform,
+            filename: d.filename,
+            url: d.url,
+            size: d.size,
+            checksum: d.checksum,
+        })
+        .collect();
 
     Ok(Json(CliVersionResponse {
         version: version.version,
@@ -63,7 +75,7 @@ pub async fn get_version(State(state): State<AppState>) -> Result<Json<CliVersio
             .map(|d| d.format("%Y-%m-%d").to_string())
             .unwrap_or_default(),
         changelog: version.changelog.unwrap_or_default(),
-        downloads: downloads_resp,
+        downloads: download_items,
         min_version: version.min_version.unwrap_or_default(),
         force_update: version.force_update,
     }))
@@ -87,30 +99,6 @@ pub async fn list_versions(State(state): State<AppState>) -> Result<Json<Version
     }).collect();
 
     Ok(Json(VersionListResponse { versions: items }))
-}
-
-/// 构建下载链接响应
-fn build_downloads_response(downloads: Vec<crate::models::cli_version::CliDownload>) -> Downloads {
-    let mut result = Downloads {
-        linux_x86_64: String::new(),
-        linux_arm64: String::new(),
-        macos_x86_64: String::new(),
-        macos_arm64: String::new(),
-        windows_x86_64: String::new(),
-    };
-
-    for download in downloads {
-        match download.platform.as_str() {
-            "linux-x86_64" => result.linux_x86_64 = download.url,
-            "linux-arm64" => result.linux_arm64 = download.url,
-            "macos-x86_64" => result.macos_x86_64 = download.url,
-            "macos-arm64" => result.macos_arm64 = download.url,
-            "windows-x86_64" => result.windows_x86_64 = download.url,
-            _ => {}
-        }
-    }
-
-    result
 }
 
 pub fn routes() -> Router<AppState> {
