@@ -106,6 +106,10 @@ onMounted(() => {
         </svg>
         <p class="text-neutral-500">{{ t('admin.noSkills') }}</p>
         <p class="text-neutral-400 text-sm mt-1">{{ t('admin.useCliTip') }}</p>
+        <div class="mt-6 p-4 bg-neutral-50 rounded-lg inline-block">
+          <code class="text-sm text-neutral-600">skillhub push ./my-skill</code>
+        </div>
+        <p class="text-neutral-400 text-xs mt-2">{{ t('admin.firstSkillTip') }}</p>
       </div>
 
       <!-- Skills Table -->

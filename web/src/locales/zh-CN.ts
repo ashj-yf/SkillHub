@@ -137,6 +137,7 @@ export default {
     browseMarket: '浏览市场',
     noSkills: '暂无创建的技能',
     useCliTip: '使用 CLI 工具发布您的第一个技能',
+    firstSkillTip: '发布后将自动出现在列表中',
     publishSkillCmd: '使用 CLI 发布技能',
     installSkillCmd: '安装技能到项目',
     view: '查看',

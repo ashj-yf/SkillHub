@@ -136,6 +136,7 @@ export default {
     browseMarket: 'Browse Market',
     noSkills: 'No skills created yet',
     useCliTip: 'Use the CLI tool to publish your first skill',
+    firstSkillTip: 'It will appear in the list after publishing',
     publishSkillCmd: 'Publish a skill with CLI',
     installSkillCmd: 'Install a skill to project',
     view: 'View',
