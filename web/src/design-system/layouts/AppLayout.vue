@@ -8,6 +8,7 @@ import { computed, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useUserStore } from '@/stores/user'
+import DownloadCli from '@/components/DownloadCli.vue'
 
 // Props 定义
 interface Props {
@@ -39,6 +40,7 @@ const isMobileMenuOpen = ref(false)
 const isUserMenuOpen = ref(false)
 const sidebarCollapsed = ref(false) // 内部管理折叠状态
 const isUserLoading = ref(false) // 用户信息加载状态
+const showDownloadModal = ref(false) // CLI 下载弹窗状态
 
 // 计算当前用户信息和登录状态
 const currentUser = computed(() => userStore.user)
@@ -179,6 +181,17 @@ onMounted(async () => {
 
         <!-- 右侧：用户菜单 -->
         <div class="flex items-center space-x-4">
+          <!-- 下载 CLI 按钮（未登录和已登录都显示） -->
+          <button
+            class="flex items-center gap-2 px-3 py-2 rounded-lg bg-brand-50 text-brand-600 hover:bg-brand-100 transition-colors text-sm font-medium"
+            @click="showDownloadModal = true"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            <span class="hidden sm:inline">下载 CLI</span>
+          </button>
+
           <!-- 已登录：显示通知按钮和用户菜单 -->
           <template v-if="isLoggedIn">
             <!-- 通知按钮 -->
@@ -372,5 +385,11 @@ onMounted(async () => {
         </div>
       </div>
     </footer>
+
+    <!-- CLI 下载弹窗 -->
+    <DownloadCli
+      :visible="showDownloadModal"
+      @close="showDownloadModal = false"
+    />
   </div>
 </template>

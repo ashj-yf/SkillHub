@@ -1,3 +1,4 @@
+pub mod cli_version;
 pub mod group;
 pub mod permission;
 pub mod role;
