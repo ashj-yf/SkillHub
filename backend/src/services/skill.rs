@@ -69,7 +69,7 @@ impl SkillService {
         if let Some(ref cache) = self.cache {
             let cache_key = CacheKey::skill_detail(slug);
             if let Ok(json) = serde_json::to_string(&skill) {
-                let _ = cache.set(&cache_key, &json, ttl::SKILL_DETAIL).await;
+                let _ = cache.set(&cache_key, &json, ttl::skill_detail()).await;
             }
         }
 

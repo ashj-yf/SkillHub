@@ -154,21 +154,29 @@ impl CacheKey {
     }
 }
 
-/// 默认 TTL 常量
+/// 默认 TTL 工具函数
 pub mod ttl {
     use std::time::Duration;
 
     /// 技能详情缓存时间 (10分钟)
-    pub const SKILL_DETAIL: Duration = Duration::from_secs(10 * 60);
+    pub fn skill_detail() -> Duration {
+        Duration::from_secs(10 * 60)
+    }
 
     /// 技能列表缓存时间 (5分钟)
-    pub const SKILL_LIST: Duration = Duration::from_secs(5 * 60);
+    pub fn skill_list() -> Duration {
+        Duration::from_secs(5 * 60)
+    }
 
     /// Manifest 缓存时间 (10分钟)
-    pub const SKILL_MANIFEST: Duration = Duration::from_secs(10 * 60);
+    pub fn skill_manifest() -> Duration {
+        Duration::from_secs(10 * 60)
+    }
 
     /// Token 黑名单缓存时间 (24小时)
-    pub const TOKEN_BLACKLIST: Duration = Duration::from_secs(24 * 60 * 60);
+    pub fn token_blacklist() -> Duration {
+        Duration::from_secs(24 * 60 * 60)
+    }
 }
 
 #[cfg(test)]
@@ -199,10 +207,10 @@ mod tests {
     }
 
     #[test]
-    fn test_ttl_constants() {
-        assert_eq!(ttl::SKILL_DETAIL, Duration::from_secs(600));
-        assert_eq!(ttl::SKILL_LIST, Duration::from_secs(300));
-        assert_eq!(ttl::SKILL_MANIFEST, Duration::from_secs(600));
-        assert_eq!(ttl::TOKEN_BLACKLIST, Duration::from_secs(86400));
+    fn test_ttl_functions() {
+        assert_eq!(ttl::skill_detail(), Duration::from_secs(600));
+        assert_eq!(ttl::skill_list(), Duration::from_secs(300));
+        assert_eq!(ttl::skill_manifest(), Duration::from_secs(600));
+        assert_eq!(ttl::token_blacklist(), Duration::from_secs(86400));
     }
 }

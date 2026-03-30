@@ -18,12 +18,28 @@ enum Commands {
     /// 初始化配置
     Init,
 
+    /// 用户登录
+    Login {
+        /// 直接使用 Token 登录
+        #[arg(long)]
+        token: Option<String>,
+    },
+
+    /// 用户登出
+    Logout,
+
+    /// 显示版本信息
+    Version,
+
     /// 列出可用技能
     List {
         /// 过滤标签
         #[arg(short, long)]
         tags: Option<String>,
     },
+
+    /// 列出本地已安装的技能
+    Local,
 
     /// 下载技能（支持 Docker Tag 语法）
     Pull {
@@ -46,6 +62,32 @@ enum Commands {
     Show {
         /// 技能 slug
         slug: String,
+    },
+
+    /// 查看技能版本历史
+    Versions {
+        /// 技能 slug
+        slug: String,
+    },
+
+    /// 更新已安装的技能
+    Update {
+        /// 技能 slug（不指定则需使用 --all）
+        slug: Option<String>,
+
+        /// 更新所有已安装技能
+        #[arg(short, long)]
+        all: bool,
+    },
+
+    /// 删除已安装的技能
+    Remove {
+        /// 技能 slug
+        slug: String,
+
+        /// 强制删除，不确认
+        #[arg(short, long)]
+        force: bool,
     },
 
     /// 管理技能标签
@@ -84,10 +126,17 @@ async fn main() -> anyhow::Result<()> {
 
     match cli.command {
         Commands::Init => commands::init::run().await?,
+        Commands::Login { token } => commands::login::run(token).await?,
+        Commands::Logout => commands::logout::run().await?,
+        Commands::Version => commands::version::run().await?,
         Commands::List { tags } => commands::list::run(tags).await?,
+        Commands::Local => commands::local::run().await?,
         Commands::Pull { reference, dir } => commands::pull::run(&reference, dir).await?,
         Commands::Search { query } => commands::search::run(&query).await?,
         Commands::Show { slug } => commands::show::run(&slug).await?,
+        Commands::Versions { slug } => commands::versions::run(&slug).await?,
+        Commands::Update { slug, all } => commands::update::run(slug, all).await?,
+        Commands::Remove { slug, force } => commands::remove::run(&slug, force).await?,
         Commands::Tag { slug, action } => commands::tag::run(&slug, action).await?,
     }
 

@@ -32,28 +32,25 @@ pub mod actions {
 
 // ==================== 权限提取器 ====================
 
-/// 权限检查提取器（已弃用，保留向后兼容）
-/// 用于验证用户是否有特定资源和操作的权限
-#[deprecated(note = "Use WithPermission<RESOURCE, ACTION> instead")]
-pub struct RequirePermission {
-    pub user: CurrentUser,
-}
-
-#[allow(deprecated)]
-impl RequirePermission {
-    /// 创建权限检查器
-    pub fn new(resource: &'static str, action: &'static str) -> PermissionGuard {
-        PermissionGuard { resource, action }
-    }
-}
-
 /// 权限守卫，用于在路由中检查权限
 pub struct PermissionGuard {
     pub resource: &'static str,
     pub action: &'static str,
 }
 
-#[allow(deprecated)]
+/// 权限检查提取器
+/// 用于验证用户是否有特定资源和操作的权限
+pub struct RequirePermission {
+    pub user: CurrentUser,
+}
+
+impl RequirePermission {
+    /// 创建权限检查器（辅助方法，用于构造 PermissionGuard）
+    pub fn guard(resource: &'static str, action: &'static str) -> PermissionGuard {
+        PermissionGuard { resource, action }
+    }
+}
+
 #[async_trait]
 impl FromRequestParts<AppState> for RequirePermission {
     type Rejection = ApiError;
@@ -63,39 +60,6 @@ impl FromRequestParts<AppState> for RequirePermission {
         let AuthUser(current_user) = AuthUser::from_request_parts(parts, state).await?;
 
         Ok(RequirePermission { user: current_user })
-    }
-}
-
-/// 类型安全的权限提取器
-/// 使用 const generics 实现编译时类型检查
-///
-/// # 示例
-/// ```ignore
-/// // 在 handler 中使用
-/// async fn create_skill(
-///     WithPermission<SKILLS, CREATE>: WithPermission<resources::SKILLS, actions::CREATE>,
-/// ) -> ... {
-///     // 用户已有 skills:create 权限
-/// }
-/// ```
-pub struct WithPermission<const RESOURCE: &'static str, const ACTION: &'static str> {
-    pub user: CurrentUser,
-}
-
-#[async_trait]
-impl<const RESOURCE: &'static str, const ACTION: &'static str> FromRequestParts<AppState>
-    for WithPermission<RESOURCE, ACTION>
-{
-    type Rejection = ApiError;
-
-    async fn from_request_parts(parts: &mut Parts, state: &AppState) -> Result<Self, Self::Rejection> {
-        // 首先获取认证用户
-        let AuthUser(current_user) = AuthUser::from_request_parts(parts, state).await?;
-
-        // 检查权限
-        check_permission_or_forbidden(state, current_user.id, RESOURCE, ACTION).await?;
-
-        Ok(WithPermission { user: current_user })
     }
 }
 
@@ -208,7 +172,6 @@ pub trait Ownable {
 /// 检查用户是否是资源的所有者
 ///
 /// # 参数
-/// - `state`: 应用状态
 /// - `user_id`: 当前用户 ID
 /// - `resource`: 资源对象（实现 Ownable trait）
 ///

@@ -4,8 +4,7 @@ use tabled::{Table, Tabled, settings::Style};
 
 use crate::api::ApiClient;
 use crate::config::Config;
-
-use super::TagAction;
+use crate::TagAction;
 
 #[derive(Tabled)]
 struct TagRow {

@@ -1,6 +1,13 @@
 pub mod init;
 pub mod list;
+pub mod local;
+pub mod login;
+pub mod logout;
 pub mod pull;
+pub mod remove;
 pub mod search;
 pub mod show;
 pub mod tag;
+pub mod update;
+pub mod version;
+pub mod versions;

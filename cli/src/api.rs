@@ -228,4 +228,91 @@ impl ApiClient {
 
         Ok(())
     }
+
+    /// 用户登录
+    pub async fn login(&self, email: &str, password: &str) -> Result<String> {
+        let url = format!("{}/auth/login", self.base_url);
+
+        let body = serde_json::json!({
+            "email": email,
+            "password": password
+        });
+
+        let response = self.client
+            .post(&url)
+            .json(&body)
+            .send().await
+            .context("Failed to connect to API server. Is the server running?")?;
+
+        let status = response.status();
+        if !status.is_success() {
+            let error_text = response.text().await.unwrap_or_default();
+            if let Ok(api_error) = serde_json::from_str::<ApiErrorResponse>(&error_text) {
+                return Err(anyhow!("{}: {}", api_error.error.code, api_error.error.message));
+            }
+            return Err(anyhow!("登录失败 (HTTP {}): {}", status, error_text));
+        }
+
+        #[derive(Debug, Deserialize)]
+        struct LoginResponse {
+            token: String,
+        }
+
+        let login_response: LoginResponse = response.json().await
+            .context("Failed to parse login response")?;
+
+        Ok(login_response.token)
+    }
+
+    /// 获取技能版本列表
+    pub async fn list_versions(&self, slug: &str) -> Result<Vec<SkillVersion>> {
+        if slug.trim().is_empty() {
+            return Err(anyhow!("技能 slug 不能为空"));
+        }
+
+        let url = format!("{}/skills/{}/versions", self.base_url, urlencoding::encode(slug));
+
+        let response = self.build_request(&url).send().await
+            .context("Failed to connect to API server. Is the server running?")?;
+
+        Self::handle_response(response).await
+    }
+
+    /// 检查 CLI 版本更新
+    pub async fn check_cli_version(&self) -> Result<CliVersionInfo> {
+        let url = format!("{}/cli/version", self.base_url);
+
+        let response = self.client
+            .get(&url)
+            .send().await
+            .context("Failed to check CLI version")?;
+
+        let status = response.status();
+        if !status.is_success() {
+            return Err(anyhow!("版本检查失败 (HTTP {})", status));
+        }
+
+        response.json().await
+            .context("Failed to parse version response")
+    }
+}
+
+/// CLI 版本信息
+#[derive(Debug, Clone, Deserialize)]
+pub struct CliVersionInfo {
+    pub version: String,
+    pub release_date: String,
+    pub changelog: String,
+    pub downloads: CliDownloads,
+    pub min_version: String,
+    pub force_update: bool,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct CliDownloads {
+    pub linux_x86_64: String,
+    pub linux_arm64: String,
+    pub macos_x86_64: String,
+    pub macos_arm64: String,
+    pub windows_x86_64: String,
 }
