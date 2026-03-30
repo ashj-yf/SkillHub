@@ -23,6 +23,7 @@ export default {
     status: 'Status',
     name: 'Name',
     description: 'Description',
+    optional: '(optional)',
   },
 
   // Authentication
@@ -271,5 +272,25 @@ export default {
     INVALID_CREDENTIALS: 'Invalid email or password',
     ACCOUNT_DISABLED: 'Account has been disabled',
     USER_NOT_FOUND: 'User not found',
+  },
+
+  // Upload
+  upload: {
+    title: 'Upload Skill Version',
+    version: 'Version',
+    versionPlaceholder: 'v1.0.0',
+    versionHint: 'Format: vMAJOR.MINOR.PATCH',
+    versionFormat: 'Invalid version format, should be like v1.0.0',
+    file: 'File',
+    selectFile: 'Click to select .tar.gz file',
+    fileHint: 'Supports .tar.gz format, max 10MB',
+    fileTooLarge: 'File size exceeds limit (max 10MB)',
+    onlyTarGz: 'Only .tar.gz format is supported',
+    changelog: 'Changelog',
+    changelogPlaceholder: 'Describe what changed in this version...',
+    uploading: 'Uploading...',
+    upload: 'Upload',
+    failed: 'Upload failed',
+    success: 'Upload successful',
   },
 }

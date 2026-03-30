@@ -20,6 +20,7 @@ export default {
     status: '状态',
     name: '名称',
     description: '描述',
+    optional: '（可选）',
   },
 
   // 认证
@@ -273,5 +274,25 @@ export default {
     INVALID_CREDENTIALS: '邮箱或密码错误',
     ACCOUNT_DISABLED: '账户已被禁用',
     USER_NOT_FOUND: '用户不存在',
+  },
+
+  // 上传
+  upload: {
+    title: '上传技能版本',
+    version: '版本号',
+    versionPlaceholder: 'v1.0.0',
+    versionHint: '格式: v主版本.次版本.修订号',
+    versionFormat: '版本号格式不正确，应为 v1.0.0 格式',
+    file: '文件',
+    selectFile: '点击选择 .tar.gz 文件',
+    fileHint: '支持 .tar.gz 格式，最大 10MB',
+    fileTooLarge: '文件大小超过限制（最大 10MB）',
+    onlyTarGz: '仅支持 .tar.gz 格式文件',
+    changelog: '变更日志',
+    changelogPlaceholder: '描述本次更新的内容...',
+    uploading: '上传中...',
+    upload: '上传',
+    failed: '上传失败',
+    success: '上传成功',
   },
 }

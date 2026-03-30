@@ -6,10 +6,11 @@
  */
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { listMySkills, deleteSkill, type Skill } from '@/api/skills'
+import { listMySkills, deleteSkill, type Skill, type SkillVersion } from '@/api/skills'
 import { extractErrorMessage } from '@/api/index'
 import AppLayout from '@/design-system/layouts/AppLayout.vue'
 import Button from '@/design-system/elements/Button/Button.vue'
+import VersionUploadModal from '@/components/VersionUploadModal.vue'
 
 const { t } = useI18n()
 
@@ -17,6 +18,10 @@ const mySkills = ref<Skill[]>([])
 const loading = ref(false)
 const deleting = ref<string | null>(null)
 const error = ref('')
+
+// 上传弹窗状态
+const showUploadModal = ref(false)
+const selectedSkillSlug = ref('')
 
 async function loadMySkills() {
   loading.value = true
@@ -45,6 +50,17 @@ async function handleDelete(skill: Skill) {
   } finally {
     deleting.value = null
   }
+}
+
+function openUploadModal(skill: Skill) {
+  selectedSkillSlug.value = skill.slug
+  showUploadModal.value = true
+}
+
+function handleUploadSuccess(version: SkillVersion) {
+  showUploadModal.value = false
+  // 刷新列表
+  loadMySkills()
 }
 
 onMounted(() => {
@@ -134,6 +150,12 @@ onMounted(() => {
                     {{ t('admin.view') }}
                   </router-link>
                   <button
+                    @click="openUploadModal(skill)"
+                    class="text-brand-500 hover:text-brand-700 text-sm"
+                  >
+                    {{ t('upload.upload') }}
+                  </button>
+                  <button
                     @click="handleDelete(skill)"
                     :disabled="deleting === skill.id"
                     class="text-red-500 hover:text-red-700 text-sm disabled:opacity-50"
@@ -166,5 +188,14 @@ onMounted(() => {
         </div>
       </div>
     </div>
+
+    <!-- Upload Modal -->
+    <VersionUploadModal
+      v-if="selectedSkillSlug"
+      :slug="selectedSkillSlug"
+      :visible="showUploadModal"
+      @close="showUploadModal = false"
+      @success="handleUploadSuccess"
+    />
   </AppLayout>
 </template>
