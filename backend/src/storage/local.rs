@@ -5,6 +5,7 @@ use tokio::io::AsyncWriteExt;
 use uuid::Uuid;
 
 /// 本地文件存储
+#[derive(Clone)]
 pub struct LocalStorage {
     base_path: PathBuf,
 }

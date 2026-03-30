@@ -7,19 +7,19 @@ use uuid::Uuid;
 use crate::cache::{CacheKey, RedisCache, ttl};
 use crate::models::skill::{CreateSkill, CreateSkillTag, CreateSkillVersion, Skill, SkillTag, SkillTagResponse, SkillVersion, SkillManifest, UpdateSkill};
 use crate::repos::skill::SkillRepo;
-use crate::storage::Storage;
+use crate::storage::StorageBackend;
 
 /// Content size threshold for storing in object storage (10KB)
 const STORAGE_THRESHOLD: usize = 10 * 1024;
 
 pub struct SkillService {
     skill_repo: SkillRepo,
-    storage: Storage,
+    storage: StorageBackend,
     cache: Option<RedisCache>,
 }
 
 impl SkillService {
-    pub fn new(pool: PgPool, storage: Storage) -> Self {
+    pub fn new(pool: PgPool, storage: StorageBackend) -> Self {
         Self {
             skill_repo: SkillRepo::new(pool),
             storage,
@@ -28,7 +28,7 @@ impl SkillService {
     }
 
     /// 创建带缓存的 SkillService
-    pub fn with_cache(pool: PgPool, storage: Storage, cache: Option<RedisCache>) -> Self {
+    pub fn with_cache(pool: PgPool, storage: StorageBackend, cache: Option<RedisCache>) -> Self {
         Self {
             skill_repo: SkillRepo::new(pool),
             storage,
@@ -94,7 +94,8 @@ impl SkillService {
                 .download_skill_content(skill.id, &version.version)
                 .await?
                 .ok_or_else(|| anyhow!("版本内容在存储中不存在"))?;
-            version.content = Some(content);
+            // Convert bytes to String (using lossy conversion for non-UTF8)
+            version.content = Some(String::from_utf8_lossy(&content).to_string());
         }
 
         Ok((skill, version))
@@ -245,7 +246,7 @@ impl SkillService {
             // Store in object storage for large content
             debug!(skill_id = %skill.id, content_len = content_len, "Storing content in object storage (exceeds threshold)");
             let path = self.storage
-                .upload_skill_content(skill.id, &payload.version, &payload.content)
+                .upload_skill_content(skill.id, &payload.version, content_bytes)
                 .await?;
             info!(
                 skill_id = %skill.id,

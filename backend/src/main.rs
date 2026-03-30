@@ -8,7 +8,7 @@ use skillhub_backend::api;
 use skillhub_backend::cache::RedisCache;
 use skillhub_backend::config::Config;
 use skillhub_backend::state::AppState;
-use skillhub_backend::storage::Storage;
+use skillhub_backend::storage::StorageBackend;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -46,23 +46,10 @@ async fn main() -> anyhow::Result<()> {
         "Database connected"
     );
 
-    // 初始化对象存储
-    tracing::debug!(
-        endpoint = %config.storage_endpoint,
-        bucket = %config.storage_bucket,
-        "Connecting to object storage..."
-    );
-    let storage = Storage::new(
-        &config.storage_endpoint,
-        &config.storage_access_key,
-        &config.storage_secret_key,
-        &config.storage_bucket,
-    )
-    .await?;
-    tracing::info!(
-        bucket = %config.storage_bucket,
-        "Object storage connected"
-    );
+    // 初始化本地存储
+    tracing::debug!("Initializing local storage...");
+    let storage = StorageBackend::local()?;
+    tracing::info!("Local storage initialized");
 
     // 初始化 Redis 缓存（可选）
     tracing::debug!(
