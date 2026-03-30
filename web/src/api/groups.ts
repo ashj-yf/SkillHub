@@ -77,3 +77,23 @@ export async function addGroupMember(id: string, member: AddMemberRequest): Prom
 export async function removeGroupMember(id: string, userId: string): Promise<void> {
   await api.delete(`/groups/${id}/members/${userId}`)
 }
+
+/**
+ * 组树节点，包含子节点
+ */
+export interface GroupTreeNode {
+  id: string
+  name: string
+  description?: string
+  parent_id: string | null
+  children: GroupTreeNode[]
+}
+
+/**
+ * 获取用户组树形结构
+ * @returns 组树列表
+ */
+export async function getGroupTree(): Promise<GroupTreeNode[]> {
+  const { data } = await api.get<GroupTreeNode[]>('/groups/tree')
+  return data
+}

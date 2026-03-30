@@ -1,15 +1,10 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { login as apiLogin, register as apiRegister, type LoginRequest, type RegisterRequest } from '@/api/auth'
-import { api } from '@/api'
+import { getCurrentUser as fetchCurrentUser, type UserInfo } from '@/api/users'
 
-export interface UserInfo {
-  id: string
-  username: string
-  email: string
-  role: string
-  roles?: string[]  // 用户角色列表
-}
+// Re-export UserInfo for backward compatibility
+export type { UserInfo }
 
 export const useUserStore = defineStore('user', () => {
   const token = ref<string | null>(localStorage.getItem('token'))
@@ -49,7 +44,7 @@ export const useUserStore = defineStore('user', () => {
     if (!token.value) return
 
     try {
-      const { data } = await api.get<UserInfo>('/users/me')
+      const data = await fetchCurrentUser()
       user.value = data
     } catch (e) {
       // 获取用户信息失败，可能 token 无效

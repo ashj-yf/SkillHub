@@ -7,8 +7,11 @@ import {
   deleteUser,
   assignRole,
   removeRole,
+  getCurrentUser,
+  getUserRoles,
   type User,
   type UpdateUserRequest,
+  type UserInfo,
 } from '../users'
 
 // Mock the api module
@@ -131,6 +134,38 @@ describe('Users API', () => {
       await removeRole('1', 'admin')
 
       expect(api.delete).toHaveBeenCalledWith('/users/1/roles/admin')
+    })
+  })
+
+  describe('getCurrentUser', () => {
+    it('should call GET /users/me and return current user info', async () => {
+      const mockUserInfo: UserInfo = {
+        id: '1',
+        username: 'john',
+        email: 'john@example.com',
+        role: 'admin',
+        roles: ['admin', 'user'],
+      }
+
+      vi.mocked(api.get).mockResolvedValueOnce({ data: mockUserInfo })
+
+      const result = await getCurrentUser()
+
+      expect(api.get).toHaveBeenCalledWith('/users/me')
+      expect(result).toEqual(mockUserInfo)
+    })
+  })
+
+  describe('getUserRoles', () => {
+    it('should call GET /users/:id/roles and return role names', async () => {
+      const mockRoles = ['admin', 'user']
+
+      vi.mocked(api.get).mockResolvedValueOnce({ data: mockRoles })
+
+      const result = await getUserRoles('1')
+
+      expect(api.get).toHaveBeenCalledWith('/users/1/roles')
+      expect(result).toEqual(mockRoles)
     })
   })
 })

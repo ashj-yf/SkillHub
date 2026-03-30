@@ -9,10 +9,12 @@ import {
   getGroupMembers,
   addGroupMember,
   removeGroupMember,
+  getGroupTree,
   type Group,
   type CreateGroupRequest,
   type UpdateGroupRequest,
   type GroupMember,
+  type GroupTreeNode,
 } from '../groups'
 
 // Mock the api module
@@ -186,6 +188,42 @@ describe('Groups API', () => {
       await removeGroupMember('1', '3')
 
       expect(api.delete).toHaveBeenCalledWith('/groups/1/members/3')
+    })
+  })
+
+  describe('getGroupTree', () => {
+    it('should call GET /groups/tree and return tree structure', async () => {
+      const mockTree: GroupTreeNode[] = [
+        {
+          id: '1',
+          name: 'Engineering',
+          description: 'Engineering department',
+          parent_id: null,
+          children: [
+            {
+              id: '2',
+              name: 'Frontend Team',
+              description: 'Frontend development',
+              parent_id: '1',
+              children: [],
+            },
+            {
+              id: '3',
+              name: 'Backend Team',
+              description: 'Backend development',
+              parent_id: '1',
+              children: [],
+            },
+          ],
+        },
+      ]
+
+      vi.mocked(api.get).mockResolvedValueOnce({ data: mockTree })
+
+      const result = await getGroupTree()
+
+      expect(api.get).toHaveBeenCalledWith('/groups/tree')
+      expect(result).toEqual(mockTree)
     })
   })
 })

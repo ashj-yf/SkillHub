@@ -10,6 +10,14 @@ export interface User {
   updated_at: string
 }
 
+export interface UserInfo {
+  id: string
+  username: string
+  email: string
+  role: string
+  roles: string[]
+}
+
 export interface UpdateUserRequest {
   username?: string
   email?: string
@@ -17,6 +25,25 @@ export interface UpdateUserRequest {
 }
 
 // User Management API - Backend now implements full user management
+
+/**
+ * 获取当前登录用户信息
+ * @returns 用户基本信息（包含角色列表）
+ */
+export async function getCurrentUser(): Promise<UserInfo> {
+  const { data } = await api.get<UserInfo>('/users/me')
+  return data
+}
+
+/**
+ * 获取指定用户的角色列表
+ * @param userId - 用户 ID
+ * @returns 角色名称列表
+ */
+export async function getUserRoles(userId: string): Promise<string[]> {
+  const { data } = await api.get<string[]>(`/users/${userId}/roles`)
+  return data
+}
 
 export async function listUsers(): Promise<User[]> {
   const { data } = await api.get<User[]>('/users')

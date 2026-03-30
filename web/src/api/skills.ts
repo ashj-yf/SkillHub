@@ -215,3 +215,34 @@ export async function uploadSkillVersion(
   )
   return data
 }
+
+/**
+ * 创建技能标签请求
+ */
+export interface CreateSkillTagRequest {
+  tag: string
+  version: string
+}
+
+/**
+ * 创建技能标签
+ * @param slug - 技能 slug
+ * @param request - 标签请求
+ * @returns 创建的标签信息
+ */
+export async function createSkillTag(
+  slug: string,
+  request: CreateSkillTagRequest
+): Promise<SkillTag> {
+  const { data } = await api.post<SkillTag>(`/skills/${slug}/tags`, request)
+  return data
+}
+
+/**
+ * 删除技能标签
+ * @param slug - 技能 slug
+ * @param tag - 标签名称
+ */
+export async function deleteSkillTag(slug: string, tag: string): Promise<void> {
+  await api.delete(`/skills/${slug}/tags/${tag}`)
+}
