@@ -371,11 +371,11 @@ pub async fn admin_create_user(
     let user_repo = UserRepo::new(state.db.clone());
     let role_repo = RoleRepo::new(state.db.clone());
 
-    // 验证用户名长度（1-50字符）
+    // 验证用户名长度（3-50字符）
     let username_len = payload.username.trim().len();
-    if username_len == 0 || username_len > 50 {
+    if username_len < 3 || username_len > 50 {
         warn!(username = %payload.username, len = username_len, "Username validation failed");
-        return Err(ApiError::BadRequest("用户名长度需在 1-50 个字符之间".into()));
+        return Err(ApiError::BadRequest("用户名长度需在 3-50 个字符之间".into()));
     }
 
     // 验证邮箱格式（简单检查）

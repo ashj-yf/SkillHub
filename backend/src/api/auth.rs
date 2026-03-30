@@ -46,8 +46,8 @@ pub async fn register(
     let service = AuthService::new(state.db, state.jwt_secret, 24);
 
     // 验证输入
-    if payload.username.is_empty() || payload.username.len() > 50 {
-        return Err(ApiError::BadRequest("用户名长度应为 1-50 个字符".into()));
+    if payload.username.len() < 3 || payload.username.len() > 50 {
+        return Err(ApiError::BadRequest("用户名长度应为 3-50 个字符".into()));
     }
     if payload.email.is_empty() || !payload.email.contains('@') {
         return Err(ApiError::BadRequest("请输入有效的邮箱地址".into()));

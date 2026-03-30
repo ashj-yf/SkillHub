@@ -56,7 +56,7 @@ export default {
       invalidEmail: 'Please enter a valid email address',
       passwordTooShort: 'Password must be at least 8 characters',
       passwordsNotMatch: 'Passwords do not match',
-      usernameLength: 'Username must be 1-50 characters',
+      usernameLength: 'Username must be 3-50 characters',
       loginFailed: 'Login failed',
       registerFailed: 'Registration failed',
     },

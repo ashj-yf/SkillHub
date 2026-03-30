@@ -56,7 +56,7 @@ export default {
       invalidEmail: '请输入有效的邮箱地址',
       passwordTooShort: '密码至少需要 8 个字符',
       passwordsNotMatch: '两次密码输入不一致',
-      usernameLength: '用户名长度应为 1-50 个字符',
+      usernameLength: '用户名长度应为 3-50 个字符',
       loginFailed: '登录失败',
       registerFailed: '注册失败',
     },

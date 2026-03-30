@@ -575,10 +575,10 @@ onMounted(() => {
         </div>
 
         <div class="flex justify-end gap-3 mt-6">
-          <Button type="secondary" @click="closeCreateModal">{{ t('common.cancel') }}</Button>
+          <Button type="secondary" @click="closeCreateModal" :disabled="createLoading">{{ t('common.cancel') }}</Button>
           <Button
             :loading="createLoading"
-            :disabled="!createFormData.username || !createFormData.email || !createFormData.password"
+            :disabled="!createFormData.username || !createFormData.email || !createFormData.password || createFormData.password.length < 8"
             @click="handleCreateUser"
           >
             {{ createLoading ? t('users.creating') : t('common.create') }}
