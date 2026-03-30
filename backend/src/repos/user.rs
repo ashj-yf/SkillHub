@@ -30,6 +30,30 @@ impl UserRepo {
         Ok(user)
     }
 
+    /// 创建用户（管理员创建，可指定 is_active）
+    pub async fn create_with_active(
+        &self,
+        payload: &CreateUser,
+        password_hash: &str,
+        is_active: bool,
+    ) -> Result<User> {
+        let user = sqlx::query_as::<_, User>(
+            r#"
+            INSERT INTO users (username, email, password_hash, role, is_active)
+            VALUES ($1, $2, $3, 'user', $4)
+            RETURNING *
+            "#
+        )
+        .bind(&payload.username)
+        .bind(&payload.email)
+        .bind(password_hash)
+        .bind(is_active)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(user)
+    }
+
     pub async fn find_by_id(&self, id: Uuid) -> Result<Option<User>> {
         let user = sqlx::query_as::<_, User>(
             "SELECT * FROM users WHERE id = $1"

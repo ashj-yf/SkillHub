@@ -172,6 +172,18 @@ export default {
     userGroups: 'User Groups',
     noGroups: 'This user is not in any group',
     primaryGroup: 'Primary',
+    createUser: 'Add User',
+    activeImmediately: 'Activate immediately',
+    usernamePlaceholder: 'Enter username',
+    emailPlaceholder: 'Enter email',
+    passwordPlaceholder: 'Set password',
+    usernameRequired: 'Username is required',
+    emailRequired: 'Email is required',
+    passwordRequired: 'Password is required',
+    creating: 'Creating...',
+    createSuccess: 'User created successfully',
+    createFailed: 'Failed to create user',
+    selectRoles: 'Select roles',
   },
 
   // Group Management

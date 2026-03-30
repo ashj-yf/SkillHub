@@ -5,18 +5,19 @@ use axum::{
     Json, Router,
 };
 use serde::{Deserialize, Serialize};
+use tracing::{debug, info, warn};
 use uuid::Uuid;
 
 use crate::middleware::auth::AuthUser;
 use crate::middleware::permission::{
-    check_permission_or_forbidden, is_admin, resources, actions,
+    check_permission_or_forbidden, resources, actions,
 };
 use crate::models::skill::Skill;
-use crate::models::user::User;
+use crate::models::user::{CreateUser, User};
 use crate::repos::skill::SkillRepo;
 use crate::repos::user::UserRepo;
 use crate::repos::role::RoleRepo;
-use crate::services::auth::AuthService;
+use crate::services::auth::{hash_password, AuthService};
 use crate::state::AppState;
 use crate::utils::error::ApiError;
 
@@ -55,6 +56,18 @@ pub struct AssignRoleRequest {
     pub role: String,
 }
 
+/// 管理员创建用户请求
+#[derive(Debug, Deserialize)]
+pub struct AdminCreateUserRequest {
+    pub username: String,
+    pub email: String,
+    pub password: String,
+    /// 是否激活，默认 true
+    pub is_active: Option<bool>,
+    /// 角色列表，默认 ["user"]
+    pub roles: Option<Vec<String>>,
+}
+
 pub fn routes() -> Router<AppState> {
     Router::new()
         // 当前用户信息
@@ -62,7 +75,7 @@ pub fn routes() -> Router<AppState> {
         .route("/users/me/profile", get(get_my_profile))
         .route("/users/me/skills", get(get_my_skills))
         // 用户管理（管理员）
-        .route("/users", get(list_users))
+        .route("/users", get(list_users).post(admin_create_user))
         .route("/users/:id", get(get_user).put(update_user).delete(delete_user))
         // 用户角色管理
         .route("/users/:id/roles", get(get_user_roles).post(assign_role))
@@ -342,4 +355,119 @@ pub async fn remove_role(
 
     role_repo.remove_from_user(id, role.id).await?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+/// 管理员创建用户
+pub async fn admin_create_user(
+    State(state): State<AppState>,
+    AuthUser(current_user): AuthUser,
+    Json(payload): Json<AdminCreateUserRequest>,
+) -> Result<(StatusCode, Json<UserDetail>), ApiError> {
+    debug!(username = %payload.username, email = %payload.email, "Admin creating user");
+
+    // 权限检查：需要 users:create 权限或管理员
+    check_permission_or_forbidden(&state, current_user.id, resources::USERS, actions::CREATE).await?;
+
+    let user_repo = UserRepo::new(state.db.clone());
+    let role_repo = RoleRepo::new(state.db.clone());
+
+    // 验证用户名长度（1-50字符）
+    let username_len = payload.username.trim().len();
+    if username_len == 0 || username_len > 50 {
+        warn!(username = %payload.username, len = username_len, "Username validation failed");
+        return Err(ApiError::BadRequest("用户名长度需在 1-50 个字符之间".into()));
+    }
+
+    // 验证邮箱格式（简单检查）
+    let email = payload.email.trim();
+    if !email.contains('@') || email.len() < 5 {
+        warn!(email = %email, "Email validation failed");
+        return Err(ApiError::BadRequest("邮箱格式不正确".into()));
+    }
+
+    // 验证密码长度（至少8位）
+    if payload.password.len() < 8 {
+        warn!("Password validation failed: too short");
+        return Err(ApiError::BadRequest("密码长度至少为 8 位".into()));
+    }
+
+    // 检查邮箱是否已存在
+    if user_repo.find_by_email(email).await?.is_some() {
+        warn!(email = %email, "Email already registered");
+        return Err(ApiError::Conflict("邮箱已被注册".into()));
+    }
+
+    // 检查用户名是否已存在
+    let username = payload.username.trim();
+    if user_repo.find_by_username(username).await?.is_some() {
+        warn!(username = %username, "Username already taken");
+        return Err(ApiError::Conflict("用户名已被使用".into()));
+    }
+
+    // 哈希密码
+    debug!("Hashing password");
+    let password_hash = hash_password(&payload.password)
+        .map_err(|e| {
+            warn!(error = %e, "Password hashing failed");
+            ApiError::InternalServerError
+        })?;
+
+    // 设置 is_active，默认 true
+    let is_active = payload.is_active.unwrap_or(true);
+
+    // 创建用户
+    let create_payload = CreateUser {
+        username: username.to_string(),
+        email: email.to_string(),
+        password: payload.password.clone(),
+    };
+
+    let user = user_repo.create_with_active(&create_payload, &password_hash, is_active).await
+        .map_err(|e| {
+            warn!(error = %e, "User creation failed");
+            ApiError::InternalServerError
+        })?;
+
+    info!(user_id = %user.id, username = %user.username, "User created by admin");
+
+    // 分配角色
+    let roles_to_assign = payload.roles.unwrap_or_else(|| vec!["user".to_string()]);
+    let mut assigned_roles = Vec::new();
+
+    for role_name in &roles_to_assign {
+        // 查找角色
+        let role = role_repo.find_by_name(role_name).await?;
+        if let Some(role) = role {
+            role_repo.assign_to_user(user.id, role.id, Some(current_user.id)).await
+                .map_err(|e| {
+                    warn!(error = %e, role_name = %role_name, "Role assignment failed");
+                    ApiError::InternalServerError
+                })?;
+            assigned_roles.push(role_name.clone());
+        } else {
+            warn!(role_name = %role_name, "Role not found, skipping");
+        }
+    }
+
+    // 如果没有分配任何角色，确保至少有 user 角色
+    if assigned_roles.is_empty() {
+        if let Some(user_role) = role_repo.find_by_name("user").await? {
+            role_repo.assign_to_user(user.id, user_role.id, Some(current_user.id)).await
+                .map_err(|e| {
+                    warn!(error = %e, "Default role assignment failed");
+                    ApiError::InternalServerError
+                })?;
+            assigned_roles.push("user".to_string());
+        }
+    }
+
+    Ok((StatusCode::CREATED, Json(UserDetail {
+        id: user.id.to_string(),
+        username: user.username,
+        email: user.email,
+        is_active: user.is_active,
+        roles: assigned_roles,
+        created_at: user.created_at,
+        updated_at: user.updated_at,
+    })))
 }

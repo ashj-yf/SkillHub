@@ -22,8 +22,10 @@ import {
   assignRole,
   removeRole,
   getUserGroups,
+  createUser,
   type User,
   type UserGroup,
+  type CreateUserRequest,
 } from '@/api/users'
 import { extractErrorMessage } from '@/api/index'
 import Button from '@/design-system/elements/Button/Button.vue'
@@ -48,6 +50,18 @@ const operationLoading = ref(false)
 const isGroupModalOpen = ref(false)
 const userGroups = ref<UserGroup[]>([])
 const groupLoading = ref(false)
+
+// 创建用户相关状态
+const isCreateModalOpen = ref(false)
+const createLoading = ref(false)
+const createFormData = ref<CreateUserRequest>({
+  username: '',
+  email: '',
+  password: '',
+  is_active: true,
+  roles: ['user'],
+})
+const createError = ref('')
 
 // Map role IDs to role names for display
 const roleIdToName = computed(() => {
@@ -166,6 +180,55 @@ function closeGroupModal() {
   userGroups.value = []
 }
 
+// 创建用户相关方法
+function openCreateModal() {
+  createError.value = ''
+  createFormData.value = {
+    username: '',
+    email: '',
+    password: '',
+    is_active: true,
+    roles: ['user'],
+  }
+  isCreateModalOpen.value = true
+}
+
+function closeCreateModal() {
+  isCreateModalOpen.value = false
+  createError.value = ''
+}
+
+async function handleCreateUser() {
+  createError.value = ''
+
+  // 表单验证
+  if (!createFormData.value.username) {
+    createError.value = t('users.usernameRequired')
+    return
+  }
+
+  if (!createFormData.value.email || !createFormData.value.email.includes('@')) {
+    createError.value = t('auth.errors.invalidEmail')
+    return
+  }
+
+  if (!createFormData.value.password || createFormData.value.password.length < 8) {
+    createError.value = t('auth.errors.passwordTooShort')
+    return
+  }
+
+  createLoading.value = true
+  try {
+    const created = await createUser(createFormData.value)
+    users.value.push(created)
+    closeCreateModal()
+  } catch (e) {
+    createError.value = extractErrorMessage(e, t('users.createFailed'))
+  } finally {
+    createLoading.value = false
+  }
+}
+
 // Lifecycle
 onMounted(() => {
   loadData()
@@ -181,6 +244,14 @@ onMounted(() => {
         <h1 class="text-2xl font-bold text-neutral-800">{{ t('users.title') }}</h1>
         <p class="text-neutral-500 mt-1">{{ t('users.subtitle') }}</p>
       </div>
+      <Button @click="openCreateModal">
+        <template #icon-left>
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+          </svg>
+        </template>
+        {{ t('users.createUser') }}
+      </Button>
     </div>
 
     <!-- Search Bar -->
@@ -421,6 +492,96 @@ onMounted(() => {
         <div class="flex justify-end mt-6">
           <Button type="secondary" @click="closeGroupModal">
             {{ t('common.close') }}
+          </Button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Create User Modal -->
+    <div
+      v-if="isCreateModalOpen"
+      class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+    >
+      <div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+        <h2 class="text-lg font-semibold text-neutral-800 mb-4">{{ t('users.createUser') }}</h2>
+
+        <!-- Error Alert -->
+        <div
+          v-if="createError"
+          class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm mb-4"
+        >
+          {{ createError }}
+        </div>
+
+        <div class="space-y-4">
+          <Input
+            v-model="createFormData.username"
+            :label="t('auth.register.username')"
+            required
+            :placeholder="t('users.usernamePlaceholder')"
+            :maxlength="50"
+          />
+
+          <Input
+            v-model="createFormData.email"
+            :label="t('users.email')"
+            type="email"
+            required
+            :placeholder="t('users.emailPlaceholder')"
+          />
+
+          <Input
+            v-model="createFormData.password"
+            :label="t('auth.login.password')"
+            type="password"
+            required
+            show-password
+            :placeholder="t('users.passwordPlaceholder')"
+            :hint="t('auth.login.passwordHint')"
+          />
+
+          <!-- Roles Selection -->
+          <div>
+            <label class="block text-sm font-medium text-neutral-700 mb-2">
+              {{ t('users.roles') }}
+            </label>
+            <div class="flex flex-wrap gap-2">
+              <label
+                v-for="role in roles"
+                :key="role.id"
+                class="flex items-center gap-2 px-3 py-2 border border-neutral-200 rounded-lg cursor-pointer hover:border-neutral-300 transition-colors"
+                :class="(createFormData.roles || []).includes(role.name) ? 'border-brand-500 bg-brand-50' : ''"
+              >
+                <input
+                  type="checkbox"
+                  :value="role.name"
+                  v-model="createFormData.roles"
+                  class="w-4 h-4 text-brand-500 border-neutral-300 rounded focus:ring-brand-500"
+                />
+                <span class="text-sm text-neutral-700">{{ role.name }}</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Active Status -->
+          <div class="flex items-center gap-2">
+            <input
+              type="checkbox"
+              v-model="createFormData.is_active"
+              class="w-4 h-4 text-brand-500 border-neutral-300 rounded focus:ring-brand-500"
+            />
+            <span class="text-sm text-neutral-700">{{ t('users.activeImmediately') }}</span>
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-3 mt-6">
+          <Button type="secondary" @click="closeCreateModal">{{ t('common.cancel') }}</Button>
+          <Button
+            :loading="createLoading"
+            :disabled="!createFormData.username || !createFormData.email || !createFormData.password"
+            @click="handleCreateUser"
+          >
+            {{ createLoading ? t('users.creating') : t('common.create') }}
           </Button>
         </div>
       </div>

@@ -24,6 +24,14 @@ export interface UpdateUserRequest {
   is_active?: boolean
 }
 
+export interface CreateUserRequest {
+  username: string
+  email: string
+  password: string
+  is_active?: boolean
+  roles?: string[]
+}
+
 // User Management API - Backend now implements full user management
 
 /**
@@ -62,6 +70,11 @@ export async function updateUser(id: string, user: UpdateUserRequest): Promise<U
 
 export async function deleteUser(id: string): Promise<void> {
   await api.delete(`/users/${id}`)
+}
+
+export async function createUser(user: CreateUserRequest): Promise<User> {
+  const { data } = await api.post<User>('/users', user)
+  return data
 }
 
 /**

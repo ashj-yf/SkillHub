@@ -173,6 +173,18 @@ export default {
     userGroups: '用户所属组',
     noGroups: '该用户暂未加入任何组',
     primaryGroup: '主组',
+    createUser: '添加用户',
+    activeImmediately: '立即激活',
+    usernamePlaceholder: '请输入用户名',
+    emailPlaceholder: '请输入邮箱',
+    passwordPlaceholder: '请设置密码',
+    usernameRequired: '用户名不能为空',
+    emailRequired: '邮箱不能为空',
+    passwordRequired: '密码不能为空',
+    creating: '创建中...',
+    createSuccess: '用户创建成功',
+    createFailed: '创建用户失败',
+    selectRoles: '选择角色',
   },
 
   // 组织管理
