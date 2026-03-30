@@ -101,7 +101,7 @@ impl SkillValidator {
 
     fn check_sensitive_content(&self, path: &str, content: &[u8]) -> Result<()> {
         // 检查是否包含敏感关键词（简单实现）
-        let sensitive_patterns = [
+        let sensitive_patterns: &[&[u8]] = &[
             b"password",
             b"secret",
             b"api_key",
@@ -112,7 +112,7 @@ impl SkillValidator {
         let lower_path = path.to_lowercase();
         if lower_path.ends_with(".md") || lower_path.ends_with(".txt") || lower_path.ends_with(".yaml") {
             let content_lower: Vec<u8> = content.iter().map(|c| c.to_ascii_lowercase()).collect();
-            for pattern in &sensitive_patterns {
+            for pattern in sensitive_patterns {
                 if content_lower.windows(pattern.len()).any(|w| w == *pattern) {
                     tracing::warn!("文件 {} 可能包含敏感信息", path);
                     // 仅警告，不阻止
