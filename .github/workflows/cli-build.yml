@@ -1,0 +1,194 @@
+name: Build CLI Binaries
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'  # v1.0.0 格式触发
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version override (e.g., 0.1.0)'
+        required: false
+        type: string
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Linux x86_64 (musl 静态链接)
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+            arch: x64
+            use-cross: true
+          # Linux ARM64
+          - target: aarch64-unknown-linux-musl
+            os: ubuntu-latest
+            arch: arm64
+            use-cross: true
+          # macOS x86_64 (Intel)
+          - target: x86_64-apple-darwin
+            os: macos-13  # Intel runner
+            arch: x64
+            use-cross: false
+          # macOS ARM64 (Apple Silicon)
+          - target: aarch64-apple-darwin
+            os: macos-latest  # M1 runner
+            arch: arm64
+            use-cross: false
+          # Windows x86_64
+          - target: x86_64-pc-windows-gnu
+            os: ubuntu-latest
+            arch: x64
+            use-cross: true
+            ext: .exe
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ inputs.version }}" ]; then
+            VERSION="${{ inputs.version }}"
+          elif [ "${{ github.ref_type }}" == "tag" ]; then
+            VERSION=${GITHUB_REF_NAME#v}
+          else
+            VERSION="0.0.0-dev"
+          fi
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          # 获取 git commit
+          COMMIT=$(git rev-parse --short HEAD)
+          echo "commit=${COMMIT}" >> $GITHUB_OUTPUT
+          # 获取构建日期
+          DATE=$(date +%Y-%m-%d)
+          echo "date=${DATE}" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      # macOS 不需要 cross，直接编译
+      - name: Build (macOS)
+        if: matrix.os == 'macos-13' || matrix.os == 'macos-latest'
+        working-directory: cli
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          GIT_COMMIT: ${{ steps.version.outputs.commit }}
+          BUILD_DATE: ${{ steps.version.outputs.date }}
+        run: cargo build --target ${{ matrix.target }} --release
+
+      # Linux/Windows 使用 cross 进行交叉编译
+      - name: Install cross
+        if: matrix.use-cross
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cross
+
+      - name: Build (cross)
+        if: matrix.use-cross
+        working-directory: cli
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          GIT_COMMIT: ${{ steps.version.outputs.commit }}
+          BUILD_DATE: ${{ steps.version.outputs.date }}
+        run: cross build --target ${{ matrix.target }} --release
+
+      - name: Package binary
+        working-directory: cli
+        run: |
+          # 设置输出文件名
+          EXT="${{ matrix.ext || '' }}"
+          BIN="target/${{ matrix.target }}/release/skillhub${EXT}"
+          ARTIFACT="skillhub-${{ matrix.os }}-${{ matrix.arch }}${EXT}"
+
+          # 复制并重命名
+          mkdir -p dist
+          cp "$BIN" "dist/${ARTIFACT}"
+
+          # 创建压缩包
+          if [ "${{ matrix.os }}" == "windows" ]; then
+            # Windows: 创建 zip
+            cd dist
+            zip "skillhub-${{ matrix.os }}-${{ matrix.arch }}.zip" "${ARTIFACT}"
+          else
+            # Linux/macOS: 创建 tar.gz
+            cd dist
+            tar -czf "skillhub-${{ matrix.os }}-${{ matrix.arch }}.tar.gz" "${ARTIFACT}"
+          fi
+        shell: bash
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: skillhub-${{ matrix.os }}-${{ matrix.arch }}
+          path: cli/dist/*
+          retention-days: 7
+
+  # 创建 GitHub Release
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref_type == 'tag'
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: List artifacts
+        run: ls -la artifacts/
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: CLI v${{ steps.version.outputs.version }}
+          body: |
+            ## Skills Hub CLI v${{ steps.version.outputs.version }}
+
+            ### 下载
+
+            | 平台 | 架构 | 文件 |
+            |------|------|------|
+            | Linux | x64 | skillhub-ubuntu-latest-x64.tar.gz |
+            | Linux | ARM64 | skillhub-ubuntu-latest-arm64.tar.gz |
+            | macOS (Intel) | x64 | skillhub-macos-13-x64.tar.gz |
+            | macOS (Apple Silicon) | ARM64 | skillhub-macos-latest-arm64.tar.gz |
+            | Windows | x64 | skillhub-ubuntu-latest-x64.zip |
+
+            ### 安装
+
+            ```bash
+            # Linux/macOS
+            curl -fsSL https://skillhub.io/install.sh | sh
+
+            # 或手动下载解压
+            tar -xzf skillhub-*.tar.gz
+            sudo mv skillhub /usr/local/bin/
+            ```
+
+            ### 验证
+
+            ```bash
+            skillhub --version
+            ```
+          files: artifacts/*
+          draft: false
+          prerelease: false
