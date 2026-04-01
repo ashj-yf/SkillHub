@@ -23,21 +23,25 @@ jobs:
           # Linux x86_64 (musl 静态链接)
           - target: x86_64-unknown-linux-musl
             os: ubuntu-latest
+            platform: linux
             arch: x64
             use-cross: true
           # Linux ARM64
           - target: aarch64-unknown-linux-musl
             os: ubuntu-latest
+            platform: linux
             arch: arm64
             use-cross: true
           # macOS ARM64 (Apple Silicon) - 使用 macos-latest
           - target: aarch64-apple-darwin
             os: macos-latest
+            platform: macos
             arch: arm64
             use-cross: false
           # Windows x86_64
           - target: x86_64-pc-windows-gnu
             os: ubuntu-latest
+            platform: windows
             arch: x64
             use-cross: true
             ext: .exe
@@ -103,28 +107,28 @@ jobs:
           # 设置输出文件名
           EXT="${{ matrix.ext || '' }}"
           BIN="target/${{ matrix.target }}/release/skillhub${EXT}"
-          ARTIFACT="skillhub-${{ matrix.os }}-${{ matrix.arch }}${EXT}"
+          ARTIFACT="skillhub-${{ matrix.platform }}-${{ matrix.arch }}${EXT}"
 
           # 复制并重命名
           mkdir -p dist
           cp "$BIN" "dist/${ARTIFACT}"
 
           # 创建压缩包
-          if [ "${{ matrix.os }}" == "windows" ]; then
+          if [ "${{ matrix.platform }}" == "windows" ]; then
             # Windows: 创建 zip
             cd dist
-            zip "skillhub-${{ matrix.os }}-${{ matrix.arch }}.zip" "${ARTIFACT}"
+            zip "skillhub-${{ matrix.platform }}-${{ matrix.arch }}.zip" "${ARTIFACT}"
           else
             # Linux/macOS: 创建 tar.gz
             cd dist
-            tar -czf "skillhub-${{ matrix.os }}-${{ matrix.arch }}.tar.gz" "${ARTIFACT}"
+            tar -czf "skillhub-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz" "${ARTIFACT}"
           fi
         shell: bash
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: skillhub-${{ matrix.os }}-${{ matrix.arch }}
+          name: skillhub-${{ matrix.platform }}-${{ matrix.arch }}
           path: cli/dist/*
           retention-days: 7
 
@@ -162,10 +166,10 @@ jobs:
 
             | 平台 | 架构 | 文件 |
             |------|------|------|
-            | Linux | x64 | skillhub-ubuntu-latest-x64.tar.gz |
-            | Linux | ARM64 | skillhub-ubuntu-latest-arm64.tar.gz |
-            | macOS (Apple Silicon) | ARM64 | skillhub-macos-latest-arm64.tar.gz |
-            | Windows | x64 | skillhub-ubuntu-latest-x64.zip |
+            | Linux | x64 | skillhub-linux-x64.tar.gz |
+            | Linux | ARM64 | skillhub-linux-arm64.tar.gz |
+            | macOS (Apple Silicon) | ARM64 | skillhub-macos-arm64.tar.gz |
+            | Windows | x64 | skillhub-windows-x64.zip |
 
             ### 安装
 
