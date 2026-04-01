@@ -9,8 +9,17 @@ on:
       - '**.md'
       - 'docs/**'
       - '.gitignore'
+    # 生产环境：tag 推送触发（v1.0.0 格式）
     tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+'  # 匹配 v1.0.0 格式的 tag
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+  # CLI 构建成功后自动触发
+  workflow_run:
+    workflows: ["Build CLI Binaries"]
+    types:
+      - completed
+    branches:
+      - master
 
   # 手动触发
   workflow_dispatch:
@@ -35,6 +44,8 @@ env:
   NAMESPACE: skillhub
   # 镜像名称
   IMAGE_NAME: skillhub
+  # GitHub 仓库
+  GITHUB_REPO: JokerYF/skills_hub
 
 jobs:
   # 开发环境构建
@@ -55,6 +66,21 @@ jobs:
           echo "date=${DATE}" >> $GITHUB_OUTPUT
           echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
 
+      - name: Get latest CLI version for dev build
+        id: cli-version
+        run: |
+          # 获取最新 Release 版本
+          LATEST_VERSION=$(curl -sH "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ env.GITHUB_REPO }}/releases/latest" | \
+            jq -r '.tag_name' | sed 's/^v//')
+
+          if [ -z "$LATEST_VERSION" ] || [ "$LATEST_VERSION" == "null" ]; then
+            LATEST_VERSION="latest"
+          fi
+
+          echo "version=${LATEST_VERSION}" >> $GITHUB_OUTPUT
+          echo "### CLI Version: ${LATEST_VERSION}" >> $GITHUB_STEP_SUMMARY
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -70,6 +96,10 @@ jobs:
           push: true
           provenance: false
           sbom: false
+          build-args: |
+            GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
+            CLI_VERSION=${{ steps.cli-version.outputs.version }}
+            GITHUB_REPO=${{ env.GITHUB_REPO }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.IMAGE_NAME }}:dev-latest
             ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.IMAGE_NAME }}:dev-${{ steps.meta.outputs.date }}-${{ steps.meta.outputs.short_sha }}
@@ -79,18 +109,20 @@ jobs:
           echo "### Dev Image Pushed" >> $GITHUB_STEP_SUMMARY
           echo "- **Registry**: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.IMAGE_NAME }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Tags**: dev-latest, dev-${{ steps.meta.outputs.date }}-${{ steps.meta.outputs.short_sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **CLI Version**: ${{ steps.cli-version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
 
   # 生产环境构建
   build-prod:
     if: |
       startsWith(github.ref, 'refs/tags/v') ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'prod')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Extract version from tag
+      - name: Extract version from tag or workflow_run
         id: version
         run: |
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
@@ -99,12 +131,23 @@ jobs:
               echo "Error: version is required for prod deployment"
               exit 1
             fi
+          elif [ "${{ github.event_name }}" == "workflow_run" ]; then
+            # 从 workflow_run 触发的，获取最新 Release 版本
+            VERSION=$(curl -sH "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              "https://api.github.com/repos/${{ env.GITHUB_REPO }}/releases/latest" | \
+              jq -r '.tag_name' | sed 's/^v//')
+
+            if [ -z "$VERSION" ] || [ "$VERSION" == "null" ]; then
+              echo "Error: No release found for CLI build"
+              exit 1
+            fi
           else
             # 从 tag 中提取版本号 (v1.0.0 -> 1.0.0)
             VERSION=${GITHUB_REF#refs/tags/v}
           fi
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "tag=v${VERSION}" >> $GITHUB_OUTPUT
+          echo "### Version: ${VERSION}" >> $GITHUB_STEP_SUMMARY
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -121,6 +164,10 @@ jobs:
           push: true
           provenance: false
           sbom: false
+          build-args: |
+            GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
+            CLI_VERSION=${{ steps.version.outputs.version }}
+            GITHUB_REPO=${{ env.GITHUB_REPO }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.IMAGE_NAME }}:latest
             ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.IMAGE_NAME }}:v${{ steps.version.outputs.version }}
@@ -130,3 +177,5 @@ jobs:
           echo "### Prod Image Pushed" >> $GITHUB_STEP_SUMMARY
           echo "- **Registry**: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.IMAGE_NAME }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Tags**: latest, v${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **CLI Version**: ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Triggered by**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
