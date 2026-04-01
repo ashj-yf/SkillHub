@@ -32,7 +32,13 @@ jobs:
             platform: linux
             arch: arm64
             use-cross: true
-          # macOS ARM64 (Apple Silicon) - 使用 macos-latest
+          # macOS x86_64 (Intel)
+          - target: x86_64-apple-darwin
+            os: macos-13
+            platform: macos
+            arch: x64
+            use-cross: false
+          # macOS ARM64 (Apple Silicon)
           - target: aarch64-apple-darwin
             os: macos-latest
             platform: macos
@@ -75,9 +81,9 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      # macOS 使用 macos-latest
+      # macOS 使用 macos-13 或 macos-latest
       - name: Build (macOS)
-        if: matrix.os == 'macos-latest'
+        if: startsWith(matrix.os, 'macos')
         working-directory: cli
         env:
           VERSION: ${{ steps.version.outputs.version }}
@@ -168,6 +174,7 @@ jobs:
             |------|------|------|
             | Linux | x64 | skillhub-linux-x64.tar.gz |
             | Linux | ARM64 | skillhub-linux-arm64.tar.gz |
+            | macOS (Intel) | x64 | skillhub-macos-x64.tar.gz |
             | macOS (Apple Silicon) | ARM64 | skillhub-macos-arm64.tar.gz |
             | Windows | x64 | skillhub-windows-x64.zip |
 
