@@ -72,7 +72,7 @@ FROM alpine:3.19 AS cli-downloader
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 
 # 安装下载工具
-RUN apk add --no-cache curl jq unzip
+RUN apk add --no-cache bash curl jq unzip
 
 WORKDIR /app
 
