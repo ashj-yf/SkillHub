@@ -30,14 +30,9 @@ jobs:
             os: ubuntu-latest
             arch: arm64
             use-cross: true
-          # macOS x86_64 (Intel)
-          - target: x86_64-apple-darwin
-            os: macos-13  # Intel runner
-            arch: x64
-            use-cross: false
-          # macOS ARM64 (Apple Silicon)
+          # macOS ARM64 (Apple Silicon) - 使用 macos-latest
           - target: aarch64-apple-darwin
-            os: macos-latest  # M1 runner
+            os: macos-latest
             arch: arm64
             use-cross: false
           # Windows x86_64
@@ -76,9 +71,9 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      # macOS 不需要 cross，直接编译
+      # macOS 使用 macos-latest
       - name: Build (macOS)
-        if: matrix.os == 'macos-13' || matrix.os == 'macos-latest'
+        if: matrix.os == 'macos-latest'
         working-directory: cli
         env:
           VERSION: ${{ steps.version.outputs.version }}
@@ -169,7 +164,6 @@ jobs:
             |------|------|------|
             | Linux | x64 | skillhub-ubuntu-latest-x64.tar.gz |
             | Linux | ARM64 | skillhub-ubuntu-latest-arm64.tar.gz |
-            | macOS (Intel) | x64 | skillhub-macos-13-x64.tar.gz |
             | macOS (Apple Silicon) | ARM64 | skillhub-macos-latest-arm64.tar.gz |
             | Windows | x64 | skillhub-ubuntu-latest-x64.zip |
 
